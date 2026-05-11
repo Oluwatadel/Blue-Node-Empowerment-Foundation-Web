@@ -1,4 +1,4 @@
-# Blue Node Frontend
+git # Blue Node Frontend
 
 Frontend website for Blue Node Foundation, built with React and Vite.
 

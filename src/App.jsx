@@ -682,6 +682,10 @@ export default function App() {
               {item.label}
             </a>
           ))}
+
+          <a className="donate-mini mobile-donate" href="#contact">
+            Donate
+          </a>
         </nav>
 
         <a className="donate-mini nav-donate" href="#contact">

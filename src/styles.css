@@ -120,6 +120,10 @@ img {
   border-radius: 999px;
 }
 
+.mobile-donate {
+  display: none;
+}
+
 .main-nav a {
   text-decoration: none;
   font-size: 0.98rem;
@@ -883,6 +887,12 @@ main,
 
   .main-nav a.active {
     background: rgba(29, 99, 216, 0.12);
+  }
+
+  .mobile-donate {
+    display: inline-flex;
+    margin-top: 6px;
+    justify-content: center;
   }
 
   .nav-donate {
