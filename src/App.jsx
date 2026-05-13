@@ -472,32 +472,28 @@ function ContactPage() {
 
 function SocialsPage() {
   return (
-    <>
-      <PageShell
-        kicker="Social media"
-        title="Stay connected with Blue Node Foundation."
-        body="Visitors can quickly find and follow the foundation across the major platforms."
-      >
-        <div className="social-grid">
-          {socialLinks.map((link) => (
-            <a
-              key={link.name}
-              className="social-card"
-              href={link.href}
-              target={isExternalLink(link.href) ? "_blank" : undefined}
-              rel={isExternalLink(link.href) ? "noreferrer" : undefined}
-            >
-              <span className="social-badge">
-                <SocialIcon type={link.icon} />
-              </span>
-              <span>{link.name}</span>
-            </a>
-          ))}
-        </div>
-      </PageShell>
-
-      <SocialFooter />
-    </>
+    <PageShell
+      kicker="Social media"
+      title="Stay connected with Blue Node Foundation."
+      body="Visitors can quickly find and follow the foundation across the major platforms."
+    >
+      <div className="social-grid">
+        {socialLinks.map((link) => (
+          <a
+            key={link.name}
+            className="social-card"
+            href={link.href}
+            target={isExternalLink(link.href) ? "_blank" : undefined}
+            rel={isExternalLink(link.href) ? "noreferrer" : undefined}
+          >
+            <span className="social-badge">
+              <SocialIcon type={link.icon} />
+            </span>
+            <span>{link.name}</span>
+          </a>
+        ))}
+      </div>
+    </PageShell>
   );
 }
 
@@ -655,18 +651,24 @@ export default function App() {
           <img src="/assets/images/logo.PNG" alt="Blue Node Foundation" className="logo-image" />
         </a>
 
-        <button
-          type="button"
-          className="nav-toggle"
-          aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
-          aria-expanded={mobileNavOpen}
-          aria-controls="primary-navigation"
-          onClick={toggleMobileNav}
-        >
-          <span />
-          <span />
-          <span />
-        </button>
+        <div className="nav-actions">
+          <a className="donate-mini nav-donate" href="#contact">
+            Donate
+          </a>
+
+          <button
+            type="button"
+            className="nav-toggle"
+            aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileNavOpen}
+            aria-controls="primary-navigation"
+            onClick={toggleMobileNav}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        </div>
 
         <nav
           id="primary-navigation"
@@ -682,15 +684,7 @@ export default function App() {
               {item.label}
             </a>
           ))}
-
-          <a className="donate-mini mobile-donate" href="#contact">
-            Donate
-          </a>
         </nav>
-
-        <a className="donate-mini nav-donate" href="#contact">
-          Donate
-        </a>
       </header>
 
       {renderPage()}

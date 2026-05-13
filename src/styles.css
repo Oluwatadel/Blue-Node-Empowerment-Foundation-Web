@@ -48,7 +48,7 @@ img {
   z-index: 10;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 24px;
   min-height: 86px;
   padding: 12px 5vw;
@@ -66,6 +66,7 @@ img {
   line-height: 0;
   position: relative;
   z-index: 12;
+  order: 1;
 }
 
 .logo-image {
@@ -95,6 +96,16 @@ img {
   justify-content: center;
   gap: 24px;
   flex-wrap: wrap;
+  order: 2;
+  margin-left: auto;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  order: 3;
+  margin-left: 0;
 }
 
 .nav-toggle {
@@ -118,10 +129,6 @@ img {
   margin: 5px auto;
   background: #fff;
   border-radius: 999px;
-}
-
-.mobile-donate {
-  display: none;
 }
 
 .main-nav a {
@@ -832,10 +839,11 @@ main,
 @media (max-width: 760px) {
   .top-nav {
     position: static;
-    min-height: 72px;
+    min-height: 84px;
     padding: 10px 20px;
     align-items: center;
     flex-wrap: wrap;
+    gap: 12px;
   }
 
   main,
@@ -847,6 +855,8 @@ main,
 
   .brand {
     width: auto;
+    min-width: 0;
+    order: 1;
   }
 
   .logo-image {
@@ -855,9 +865,15 @@ main,
     margin: -36px 0;
   }
 
+  .nav-actions {
+    order: 2;
+    margin-left: auto;
+    gap: 10px;
+  }
+
   .nav-toggle {
     display: inline-block;
-    margin-left: auto;
+    flex-shrink: 0;
   }
 
   .main-nav {
@@ -889,14 +905,13 @@ main,
     background: rgba(29, 99, 216, 0.12);
   }
 
-  .mobile-donate {
-    display: inline-flex;
-    margin-top: 6px;
-    justify-content: center;
-  }
-
   .nav-donate {
-    display: none;
+    display: inline-flex;
+    width: auto;
+    flex-shrink: 0;
+    padding: 0.78rem 1rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
   }
 
   .hero {
@@ -943,8 +958,7 @@ main,
   }
 
   .btn,
-  .submit-btn,
-  .donate-mini {
+  .submit-btn {
     width: 100%;
   }
 
