@@ -701,6 +701,49 @@ main,
     rgba(255, 255, 255, 0.78);
 }
 
+.donation-highlight {
+  margin-bottom: 24px;
+  padding: 24px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, var(--primary-deep), var(--primary));
+  color: #fff;
+  box-shadow: 0 20px 40px rgba(15, 47, 121, 0.28);
+}
+
+.donation-label,
+.donation-bank,
+.donation-account-name {
+  margin: 0;
+}
+
+.donation-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.donation-account-number {
+  display: block;
+  margin-top: 10px;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+
+.donation-bank {
+  margin-top: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.donation-account-name {
+  margin-top: 6px;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
 .contact-list {
   list-style: none;
   padding: 0;

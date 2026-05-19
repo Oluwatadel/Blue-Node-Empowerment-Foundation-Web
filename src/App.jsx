@@ -86,7 +86,7 @@ const programs = [
     title: "Environmental Cleanup",
     body:
       "Community clean-up drives and environmental awareness programs that promote healthier, safer, and more beautiful neighborhoods.",
-    image: getDriveThumbnailUrl("1g5K0FPuVRZutaqjagqRnG2kXalCMHm_5"),
+    image: getDriveThumbnailUrl("11sIjQYIMM1G_oR1USXLgBGyWTF1eGh1M"),
     folderId: "1SXtnEDT4Qky8ss5ARhKkan6Stqh2LcCl"
   }
 ];
@@ -437,8 +437,17 @@ function ContactPage() {
     >
       <div className="contact-social">
         <div className="contact-card">
+          <div className="donation-highlight">
+            <p className="donation-label">Donate to Blue Node Foundation</p>
+            <strong className="donation-account-number">0110523810</strong>
+            <p className="donation-bank">Prospa Capital Bank</p>
+            <p className="donation-account-name">Blue Node Foundatio</p>
+          </div>
+
           <ul className="contact-list">
-            <li>No 5, Tejumola Estate, Fajol Obantoko, Abeokuta, Nigeria</li>
+            <li>
+              2, Arokoje Street, Off Conoil Filling Station, Abeokuta, Ogun State. Nigeria
+            </li>
             <li>
               <a href="mailto:bluenodefoundation@gmail.com">bluenodefoundation@gmail.com</a>
             </li>
