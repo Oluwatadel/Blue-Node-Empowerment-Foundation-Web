@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 const ROOT_GALLERY_FOLDER_ID = "16tntmWBaxs-IyBfSbJh827XivD7806-8";
 
 function getDriveThumbnailUrl(fileId) {
-  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+  return `https://lh3.googleusercontent.com/d/${fileId}=w1000`;
 }
 
 const navItems = [
