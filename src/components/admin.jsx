@@ -53,6 +53,26 @@ function TableCard({ title, subtitle, createLabel, onCreate, columns, children, 
   );
 }
 
+function normalizeGalleryImageIds(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/\r?\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function getEditableGalleryImageIds(value) {
+  const galleryImageIds = normalizeGalleryImageIds(value);
+  return galleryImageIds.length > 0 ? galleryImageIds : [""];
+}
+
 export function AdminLogin({ onLogin, error }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -184,7 +204,7 @@ export function AdminDashboard({
     title: "",
     body: "",
     imageId: "",
-    galleryImageIds: ""
+    galleryImageIds: [""]
   };
   const emptyUserForm = {
     id: "",
@@ -218,6 +238,10 @@ export function AdminDashboard({
   const [editingProgram, setEditingProgram] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const [editingSocialLink, setEditingSocialLink] = useState(null);
+  const [galleryEditorProgram, setGalleryEditorProgram] = useState(null);
+  const [galleryEditorState, setGalleryEditorState] = useState(null);
+  const [galleryAddDraft, setGalleryAddDraft] = useState("");
+  const [galleryModalOpen, setGalleryModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
@@ -232,6 +256,7 @@ export function AdminDashboard({
     { id: "overview", label: "Overview" },
     { id: "events", label: "Events" },
     { id: "programs", label: "Programs" },
+    { id: "gallery", label: "Gallery content" },
     { id: "users", label: "User management" },
     { id: "socials", label: "Social media" }
   ];
@@ -254,7 +279,7 @@ export function AdminDashboard({
         title: editingProgram.title,
         body: editingProgram.body,
         imageId: editingProgram.imageId,
-        galleryImageIds: editingProgram.galleryImageIds.join("\n")
+        galleryImageIds: getEditableGalleryImageIds(editingProgram.galleryImageIds)
       });
       setProgramModalOpen(true);
     }
@@ -403,12 +428,33 @@ export function AdminDashboard({
       title: programFormState.title,
       body: programFormState.body,
       imageId: programFormState.imageId,
-      galleryImageIds: programFormState.galleryImageIds
-        .split(/\r?\n|,/)
-        .map((item) => item.trim())
-        .filter(Boolean)
+      galleryImageIds: normalizeGalleryImageIds(programFormState.galleryImageIds)
     });
     resetProgramModal();
+  }
+
+  function updateProgramGalleryImage(index, value) {
+    setProgramFormState((current) => ({
+      ...current,
+      galleryImageIds: current.galleryImageIds.map((item, itemIndex) => (itemIndex === index ? value : item))
+    }));
+  }
+
+  function addProgramGalleryImage() {
+    setProgramFormState((current) => ({
+      ...current,
+      galleryImageIds: [...current.galleryImageIds, ""]
+    }));
+  }
+
+  function removeProgramGalleryImage(index) {
+    setProgramFormState((current) => {
+      const nextGallery = current.galleryImageIds.filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...current,
+        galleryImageIds: nextGallery.length > 0 ? nextGallery : [""]
+      };
+    });
   }
 
   function saveUser() {
@@ -508,8 +554,101 @@ export function AdminDashboard({
     }
   }));
 
+  const programsWithGallery = programs.map((program) => ({
+    ...program,
+    galleryImageIds: Array.isArray(program.galleryImageIds) ? program.galleryImageIds : []
+  }));
+
   function renderTableRows(rows, renderRow) {
     return rows.map(renderRow);
+  }
+
+  function openGalleryManager(program) {
+    setGalleryEditorProgram(program);
+    setGalleryEditorState({
+      ...program,
+      galleryImageIds: Array.isArray(program.galleryImageIds) && program.galleryImageIds.length ? [...program.galleryImageIds] : [""]
+    });
+    setGalleryAddDraft("");
+    setGalleryModalOpen(true);
+  }
+
+  function resetGalleryModal() {
+    setGalleryModalOpen(false);
+    setGalleryEditorProgram(null);
+    setGalleryEditorState(null);
+    setGalleryAddDraft("");
+  }
+
+  function updateGalleryImage(index, value) {
+    setGalleryEditorState((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        galleryImageIds: current.galleryImageIds.map((item, itemIndex) => (itemIndex === index ? value : item))
+      };
+    });
+  }
+
+  function addGalleryImageRow() {
+    setGalleryEditorState((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        galleryImageIds: [...current.galleryImageIds, ""]
+      };
+    });
+  }
+
+  function removeGalleryImageRow(index) {
+    setGalleryEditorState((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const nextGallery = current.galleryImageIds.filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...current,
+        galleryImageIds: nextGallery.length > 0 ? nextGallery : [""]
+      };
+    });
+  }
+
+  function appendGalleryDraft() {
+    const additions = normalizeGalleryImageIds(galleryAddDraft);
+    if (!additions.length) {
+      return;
+    }
+
+    setGalleryEditorState((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        galleryImageIds: [...current.galleryImageIds, ...additions]
+      };
+    });
+    setGalleryAddDraft("");
+  }
+
+  function saveGalleryChanges() {
+    if (!galleryEditorState) {
+      return;
+    }
+
+    onSaveProgram({
+      ...galleryEditorState,
+      galleryImageIds: normalizeGalleryImageIds(galleryEditorState.galleryImageIds)
+    });
+    resetGalleryModal();
   }
 
   return (
@@ -614,16 +753,19 @@ export function AdminDashboard({
                 {activeSection === "overview" && "Website content overview"}
                 {activeSection === "events" && "Manage upcoming events"}
                 {activeSection === "programs" && "Manage programs and galleries"}
+                {activeSection === "gallery" && "Manage gallery content"}
                 {activeSection === "users" && "Manage users and team members"}
                 {activeSection === "socials" && "Manage social media presence"}
               </h2>
               <p className="page-intro">
                 {activeSection === "overview" &&
-                  "Review everything in one screen, then edit, delete, or create each content type from its own modal."}
+                  "Review everything in one screen, then jump into the dedicated sections when you need to edit content."}
                 {activeSection === "events" &&
                   "Create and maintain event listings that power the home page countdown and spotlight section."}
                 {activeSection === "programs" &&
                   "Update program titles, descriptions, cover images, and gallery image collections shown publicly."}
+                {activeSection === "gallery" &&
+                  "Refine the images attached to each program gallery and keep the public photo pages current."}
                 {activeSection === "users" &&
                   "Keep user profiles, roles, photos, contact details, and career notes current across the public team section."}
                 {activeSection === "socials" &&
@@ -652,6 +794,11 @@ export function AdminDashboard({
                     <p>Gallery-driven program areas currently published on the website.</p>
                   </article>
                   <article className="admin-metric-card">
+                    <span className="admin-stat-label">Gallery items</span>
+                    <strong>{programs.reduce((total, program) => total + (program.galleryImageIds?.length || 0), 0)}</strong>
+                    <p>Total gallery images attached to all published programs.</p>
+                  </article>
+                  <article className="admin-metric-card">
                     <span className="admin-stat-label">Users</span>
                     <strong>{users.length}</strong>
                     <p>User profiles shown publicly on the About page and editable here.</p>
@@ -667,23 +814,13 @@ export function AdminDashboard({
                   <TableCard
                     title="Events"
                     subtitle="Overview"
-                    columns={["Title", "Date", "Location", "Actions"]}
+                    columns={["Title", "Date", "Location"]}
                   >
                     {renderTableRows(sortedEvents, (event) => (
                       <tr key={event.id}>
                         <td data-label="Title">{event.title}</td>
                         <td data-label="Date">{formatEventDate(event.dateTime)}</td>
                         <td data-label="Location">{event.location}</td>
-                        <td data-label="Actions">
-                          <div className="admin-table-actions">
-                            <button type="button" className="btn secondary" onClick={() => onEditEvent(event)}>
-                              Edit
-                            </button>
-                            <button type="button" className="btn danger" onClick={() => askDelete("event", event)}>
-                              Delete
-                            </button>
-                          </div>
-                        </td>
                       </tr>
                     ))}
                   </TableCard>
@@ -691,23 +828,13 @@ export function AdminDashboard({
                   <TableCard
                     title="Programs"
                     subtitle="Overview"
-                    columns={["Title", "Slug", "Body", "Actions"]}
+                    columns={["Title", "Slug", "Body"]}
                   >
                     {renderTableRows(programs, (program) => (
                       <tr key={program.slug}>
                         <td data-label="Title">{program.title}</td>
                         <td data-label="Slug">{program.slug}</td>
                         <td data-label="Body">{program.body}</td>
-                        <td data-label="Actions">
-                          <div className="admin-table-actions">
-                            <button type="button" className="btn secondary" onClick={() => setEditingProgram(program)}>
-                              Edit
-                            </button>
-                            <button type="button" className="btn danger" onClick={() => askDelete("program", program)}>
-                              Delete
-                            </button>
-                          </div>
-                        </td>
                       </tr>
                     ))}
                   </TableCard>
@@ -715,7 +842,7 @@ export function AdminDashboard({
                   <TableCard
                     title="User management"
                     subtitle="Overview"
-                    columns={["Name", "Portfolio", "Email", "Actions"]}
+                    columns={["Name", "Portfolio", "Email"]}
                     tableClassName="admin-user-table"
                   >
                     {renderTableRows(userRows, (entry) => (
@@ -732,16 +859,6 @@ export function AdminDashboard({
                         </td>
                         <td data-label="Portfolio">{entry.data.portfolio}</td>
                         <td data-label="Email">{entry.data.email || "No email assigned"}</td>
-                        <td data-label="Actions">
-                          <div className="admin-table-actions">
-                            <button type="button" className="btn secondary" onClick={() => setEditingUser(entry)}>
-                              Edit
-                            </button>
-                            <button type="button" className="btn danger" onClick={() => askDelete("user", entry)}>
-                              Delete
-                            </button>
-                          </div>
-                        </td>
                       </tr>
                     ))}
                   </TableCard>
@@ -749,7 +866,7 @@ export function AdminDashboard({
                   <TableCard
                     title="Social media"
                     subtitle="Overview"
-                    columns={["Platform", "Handle", "Link", "Actions"]}
+                    columns={["Platform", "Handle", "Link"]}
                     tableClassName="admin-social-table"
                   >
                     {renderTableRows(socialLinks, (link) => (
@@ -757,16 +874,6 @@ export function AdminDashboard({
                         <td data-label="Platform">{link.name}</td>
                         <td data-label="Handle">{link.handle}</td>
                         <td data-label="Link">{link.href}</td>
-                        <td data-label="Actions">
-                          <div className="admin-table-actions">
-                            <button type="button" className="btn secondary" onClick={() => setEditingSocialLink(link)}>
-                              Edit
-                            </button>
-                            <button type="button" className="btn danger" onClick={() => askDelete("social", link)}>
-                              Delete
-                            </button>
-                          </div>
-                        </td>
                       </tr>
                     ))}
                   </TableCard>
@@ -822,6 +929,33 @@ export function AdminDashboard({
                         </button>
                         <button type="button" className="btn danger" onClick={() => askDelete("program", program)}>
                           Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </TableCard>
+            ) : null}
+
+            {activeSection === "gallery" ? (
+              <TableCard title="Gallery content" subtitle="Manage" columns={["Program", "Gallery images", "Actions"]}>
+                {renderTableRows(programsWithGallery, (program) => (
+                  <tr key={program.slug}>
+                    <td data-label="Program">
+                      <div className="admin-user-cell">
+                        <ManagedImage
+                          source={program.imageId || "/assets/images/Bluenode.jpg"}
+                          alt={program.title}
+                          className="admin-user-mini"
+                        />
+                        <span>{program.title}</span>
+                      </div>
+                    </td>
+                    <td data-label="Gallery images">{program.galleryImageIds.length}</td>
+                    <td data-label="Actions">
+                      <div className="admin-table-actions">
+                        <button type="button" className="btn secondary" onClick={() => openGalleryManager(program)}>
+                          Manage images
                         </button>
                       </div>
                     </td>
@@ -996,16 +1130,45 @@ export function AdminDashboard({
                 onChange={(event) => setProgramFormState((current) => ({ ...current, imageId: event.target.value }))}
               />
             </label>
-            <label className="admin-span-2">
-              Gallery image IDs
-              <textarea
-                rows="8"
-                value={programFormState.galleryImageIds}
-                onChange={(event) =>
-                  setProgramFormState((current) => ({ ...current, galleryImageIds: event.target.value }))
-                }
-              />
-            </label>
+            <div className="admin-span-2 admin-gallery-editor">
+              <div className="admin-gallery-editor-head">
+                <div>
+                  <p className="admin-card-label">Gallery content</p>
+                  <strong>Program gallery images</strong>
+                  <p className="admin-field-hint">Add one image ID or Drive link per row. We will save them in the order shown here.</p>
+                </div>
+                <button type="button" className="btn secondary" onClick={addProgramGalleryImage}>
+                  Add image
+                </button>
+              </div>
+
+              <div className="admin-gallery-list">
+                {(programFormState.galleryImageIds.length ? programFormState.galleryImageIds : [""]).map((imageId, index) => (
+                  <div className="admin-gallery-row" key={`${index}-${imageId || "blank"}`}>
+                    <div className="admin-gallery-row-fields">
+                      <input
+                        value={imageId}
+                        placeholder="Drive file ID or image URL"
+                        onChange={(event) => updateProgramGalleryImage(index, event.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="btn danger admin-gallery-remove"
+                        onClick={() => removeProgramGalleryImage(index)}
+                        disabled={programFormState.galleryImageIds.length <= 1}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {imageId ? (
+                      <div className="admin-gallery-preview">
+                        <ManagedImage source={imageId} alt={`Gallery preview ${index + 1}`} />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
             <label className="admin-span-2">
               Program body
               <textarea
@@ -1014,6 +1177,80 @@ export function AdminDashboard({
                 onChange={(event) => setProgramFormState((current) => ({ ...current, body: event.target.value }))}
               />
             </label>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {galleryModalOpen && galleryEditorState ? (
+        <ModalShell
+          title="Manage gallery images"
+          subtitle={galleryEditorProgram ? galleryEditorProgram.title : "Gallery content"}
+          onClose={resetGalleryModal}
+          footer={
+            <>
+              <button type="button" className="btn secondary" onClick={resetGalleryModal}>
+                Cancel
+              </button>
+              <button type="button" className="submit-btn" onClick={saveGalleryChanges}>
+                Save gallery
+              </button>
+            </>
+          }
+        >
+          <div className="admin-form-grid admin-modal-form-grid">
+            <div className="admin-span-2 admin-gallery-editor">
+              <div className="admin-gallery-add-row">
+                <label className="admin-span-2">
+                  Add image or more images
+                  <textarea
+                    rows="4"
+                    placeholder="Paste one image ID or URL per line, or separate multiple values with commas"
+                    value={galleryAddDraft}
+                    onChange={(event) => setGalleryAddDraft(event.target.value)}
+                  />
+                </label>
+                <p className="admin-field-hint">
+                  Paste one or many Google Drive IDs, links, or image URLs. Click Add to gallery to append them to this program.
+                </p>
+                <button type="button" className="btn secondary" onClick={appendGalleryDraft}>
+                  Add to gallery
+                </button>
+              </div>
+
+              <div className="admin-gallery-list">
+                {galleryEditorState.galleryImageIds.length ? (
+                  galleryEditorState.galleryImageIds.map((imageId, index) => (
+                    <div className="admin-gallery-row" key={`${galleryEditorState.slug}-${index}-${imageId || "blank"}`}>
+                      <div className="admin-gallery-row-fields">
+                        <input
+                          value={imageId}
+                          placeholder="Drive file ID or image URL"
+                          onChange={(event) => updateGalleryImage(index, event.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="btn danger admin-gallery-remove"
+                          onClick={() => removeGalleryImageRow(index)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      {imageId ? (
+                        <div className="admin-gallery-preview">
+                          <ManagedImage source={imageId} alt={`Gallery preview ${index + 1}`} />
+                        </div>
+                      ) : null}
+                    </div>
+                  ))
+                ) : (
+                  <p className="admin-field-hint">This gallery has no images yet. Add one above to begin.</p>
+                )}
+              </div>
+
+              <button type="button" className="btn secondary" onClick={addGalleryImageRow}>
+                Add image row
+              </button>
+            </div>
           </div>
         </ModalShell>
       ) : null}
