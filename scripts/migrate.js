@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Pool } from "@neondatabase/serverless";
+import { defaultPrograms } from "../src/content/siteContent.js";
 
 function parseEnvFile(raw) {
   const env = {};
@@ -64,11 +65,40 @@ async function main() {
   const client = await pool.connect();
 
   try {
-    for (const statement of statements) {
-      await client.query(statement);
+    await client.query("BEGIN");
+
+    try {
+      for (const statement of statements) {
+        await client.query(statement);
+      }
+
+      for (const program of defaultPrograms) {
+        await client.query(
+          `
+            INSERT INTO programs (slug, id, title, body, image_id, gallery_image_ids)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (slug) DO NOTHING
+          `,
+          [
+            program.slug,
+            program.id || program.slug,
+            program.title,
+            program.body,
+            program.imageId || "",
+            JSON.stringify(program.galleryImageIds || [])
+          ]
+        );
+      }
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
     }
 
-    console.log(`Migration complete: ${statements.length} statement(s) applied from migrations/001_init.sql`);
+    console.log(
+      `Migration complete: ${statements.length} statement(s) applied from migrations/001_init.sql and ${defaultPrograms.length} program record(s) seeded`
+    );
   } finally {
     client.release();
     await pool.end();
