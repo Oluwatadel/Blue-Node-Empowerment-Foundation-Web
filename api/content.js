@@ -201,6 +201,66 @@ async function seedDefaults(pool) {
   return loadContent(pool);
 }
 
+async function ensureDefaults(pool) {
+  const [programsResult, socialLinksResult] = await Promise.all([
+    pool.query("SELECT COUNT(*)::int AS count FROM programs"),
+    pool.query("SELECT COUNT(*)::int AS count FROM social_links")
+  ]);
+
+  const shouldSeedPrograms = programsResult.rows[0]?.count === 0;
+  const shouldSeedSocialLinks = socialLinksResult.rows[0]?.count === 0;
+
+  if (!shouldSeedPrograms && !shouldSeedSocialLinks) {
+    return;
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    if (shouldSeedPrograms) {
+      for (const program of defaultPrograms) {
+        await client.query(
+          `
+            INSERT INTO programs (slug, id, title, body, image_id, gallery_image_ids)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (slug) DO NOTHING
+          `,
+          [
+            program.slug,
+            program.id || program.slug,
+            program.title,
+            program.body,
+            program.imageId || "",
+            JSON.stringify(program.galleryImageIds || [])
+          ]
+        );
+      }
+    }
+
+    if (shouldSeedSocialLinks) {
+      for (const link of defaultSocialLinks) {
+        await client.query(
+          `
+            INSERT INTO social_links (id, name, href, icon, handle, description)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (id) DO NOTHING
+          `,
+          [link.id, link.name, link.href, link.icon, link.handle || "", link.description || ""]
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function replaceContent(pool, content) {
   const events = Array.isArray(content?.events) ? content.events : [];
   const programs = Array.isArray(content?.programs) ? content.programs : [];
@@ -286,7 +346,8 @@ export default async function handler(request) {
 
     if (request.method === "GET") {
       await migrateLegacyVolunteers(pool);
-      const content = await seedDefaults(pool);
+      await ensureDefaults(pool);
+      const content = await loadContent(pool);
       return toJsonResponse(content);
     }
 

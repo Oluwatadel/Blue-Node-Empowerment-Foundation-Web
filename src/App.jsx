@@ -16,7 +16,9 @@ import {
   getSelectedEvent,
   getSelectedProgram,
   readAdminSession,
+  readStoredEvents,
   readStoredPrograms,
+  readStoredUsers,
   readStoredSocialLinks
 } from "./lib/siteUtils.js";
 import { SiteHeader, SocialFooter } from "./components/layout.jsx";
@@ -53,10 +55,10 @@ export default function App() {
     return getCardsPerView(window.innerWidth);
   });
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [events, setEvents] = useState([]);
-  const [programs, setPrograms] = useState([]);
-  const [socialLinks, setSocialLinks] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [events, setEvents] = useState(() => readStoredEvents());
+  const [programs, setPrograms] = useState(() => readStoredPrograms());
+  const [socialLinks, setSocialLinks] = useState(() => readStoredSocialLinks());
+  const [users, setUsers] = useState(() => readStoredUsers());
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => readAdminSession());
   const [adminError, setAdminError] = useState("");
   const [editingEvent, setEditingEvent] = useState(null);
