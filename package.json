@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "migrate": "node scripts/migrate.js",
+    "prebuild": "npm run migrate",
     "build": "vite build",
     "preview": "vite preview"
   },

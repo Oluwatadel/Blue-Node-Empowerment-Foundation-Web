@@ -5,7 +5,8 @@ import {
   ADMIN_USERNAME,
   EVENTS_STORAGE_KEY,
   PROGRAMS_STORAGE_KEY,
-  SOCIAL_LINKS_STORAGE_KEY
+  SOCIAL_LINKS_STORAGE_KEY,
+  USERS_STORAGE_KEY
 } from "./content/siteContent.js";
 import { fetchSiteContent, saveSiteContent } from "./lib/contentApi.js";
 import {
@@ -15,7 +16,6 @@ import {
   getSelectedEvent,
   getSelectedProgram,
   readAdminSession,
-  readStoredEvents,
   readStoredPrograms,
   readStoredSocialLinks
 } from "./lib/siteUtils.js";
@@ -30,8 +30,11 @@ import {
   ImpactPage,
   ProgramGallery,
   ProgramsPage,
+  TeamPage,
   SocialsPage
 } from "./components/publicPages.jsx";
+
+const TEAM_PAGE_ACCESS_KEY = "bluenode-team-page-access";
 
 export default function App() {
   const [route, setRoute] = useState(() => {
@@ -50,9 +53,10 @@ export default function App() {
     return getCardsPerView(window.innerWidth);
   });
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [events, setEvents] = useState(() => readStoredEvents());
-  const [programs, setPrograms] = useState(() => readStoredPrograms());
-  const [socialLinks, setSocialLinks] = useState(() => readStoredSocialLinks());
+  const [events, setEvents] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [socialLinks, setSocialLinks] = useState([]);
+  const [users, setUsers] = useState([]);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => readAdminSession());
   const [adminError, setAdminError] = useState("");
   const [editingEvent, setEditingEvent] = useState(null);
@@ -88,6 +92,18 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (route !== "team") {
+      return;
+    }
+
+    const canAccessTeamPage = window.sessionStorage.getItem(TEAM_PAGE_ACCESS_KEY) === "true";
+    if (!canAccessTeamPage) {
+      window.location.hash = "#home";
+      setRoute("home");
+    }
+  }, [route]);
+
+  useEffect(() => {
     let active = true;
 
     async function loadContent() {
@@ -98,20 +114,20 @@ export default function App() {
           return;
         }
 
-        setEvents(Array.isArray(content.events) && content.events.length ? content.events : readStoredEvents());
-        setPrograms(Array.isArray(content.programs) && content.programs.length ? content.programs : readStoredPrograms());
-        setSocialLinks(
-          Array.isArray(content.socialLinks) && content.socialLinks.length ? content.socialLinks : readStoredSocialLinks()
-        );
+        setEvents(Array.isArray(content.events) ? content.events : []);
+        setPrograms(Array.isArray(content.programs) ? content.programs : []);
+        setSocialLinks(Array.isArray(content.socialLinks) ? content.socialLinks : []);
+        setUsers(Array.isArray(content.users) ? content.users : []);
         setContentSource("api");
       } catch {
         if (!active) {
           return;
         }
 
-        setEvents(readStoredEvents());
+        setEvents([]);
         setPrograms(readStoredPrograms());
         setSocialLinks(readStoredSocialLinks());
+        setUsers([]);
         setContentSource("local");
       } finally {
         if (active) {
@@ -135,7 +151,8 @@ export default function App() {
     window.localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(events));
     window.localStorage.setItem(PROGRAMS_STORAGE_KEY, JSON.stringify(programs));
     window.localStorage.setItem(SOCIAL_LINKS_STORAGE_KEY, JSON.stringify(socialLinks));
-  }, [events, programs, socialLinks, isContentReady]);
+    window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+  }, [events, programs, socialLinks, users, isContentReady]);
 
   useEffect(() => {
     if (!isContentReady || contentSource !== "api") {
@@ -149,7 +166,8 @@ export default function App() {
         await saveSiteContent({
           events,
           programs,
-          socialLinks
+          socialLinks,
+          users
         });
       } catch {
         if (!cancelled) {
@@ -163,7 +181,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [contentSource, events, programs, socialLinks, isContentReady]);
+  }, [contentSource, events, programs, socialLinks, users, isContentReady]);
 
   const maxSlide = Math.max(0, programs.length - cardsPerView);
 
@@ -197,6 +215,11 @@ export default function App() {
 
   function toggleMobileNav() {
     setMobileNavOpen((open) => !open);
+  }
+
+  function openTeamPage() {
+    window.sessionStorage.setItem(TEAM_PAGE_ACCESS_KEY, "true");
+    window.location.hash = "#team";
   }
 
   function handleAdminLogin({ username, password }) {
@@ -265,6 +288,21 @@ export default function App() {
     setSocialLinks((current) => current.filter((item) => item.id !== linkId));
   }
 
+  function handleSaveUser(userEntry) {
+    setUsers((current) => {
+      const exists = current.some((item) => (item.id || item.user?.name) === (userEntry.id || userEntry.user?.name));
+      if (exists) {
+        return current.map((item) => ((item.id || item.user?.name) === (userEntry.id || userEntry.user?.name) ? userEntry : item));
+      }
+
+      return [...current, userEntry];
+    });
+  }
+
+  function handleDeleteUser(userId) {
+    setUsers((current) => current.filter((item) => (item.id || item.user?.name) !== userId));
+  }
+
   function renderPage() {
     if (route === "program-gallery" && selectedProgram) {
       return <ProgramGallery program={selectedProgram} />;
@@ -280,6 +318,7 @@ export default function App() {
           events={events}
           programs={programs}
           socialLinks={socialLinks}
+          users={users}
           onLogout={handleAdminLogout}
           onSaveEvent={handleSaveEvent}
           onEditEvent={setEditingEvent}
@@ -288,6 +327,8 @@ export default function App() {
           onDeleteProgram={handleDeleteProgram}
           onSaveSocialLink={handleSaveSocialLink}
           onDeleteSocialLink={handleDeleteSocialLink}
+          onSaveUser={handleSaveUser}
+          onDeleteUser={handleDeleteUser}
           editingEvent={editingEvent}
           setEditingEvent={setEditingEvent}
         />
@@ -298,7 +339,9 @@ export default function App() {
 
     switch (route) {
       case "about":
-        return <AboutPage />;
+        return <AboutPage users={users} />;
+      case "team":
+        return <TeamPage users={users} />;
       case "programs":
         return (
           <ProgramsPage
@@ -321,12 +364,12 @@ export default function App() {
         return <SocialsPage socialLinks={socialLinks} />;
       case "home":
       default:
-        return <HomePage events={events} programs={programs} isMobile={isMobile} />;
+        return <HomePage events={events} programs={programs} users={users} isMobile={isMobile} onOpenTeamPage={openTeamPage} />;
     }
   }
 
   return (
-    <div className="page">
+    <div className={`page page-${route} ${isAdminRoute ? "page-admin" : "page-public"}`}>
       <SiteHeader
         activeNavRoute={activeNavRoute}
         mobileNavOpen={mobileNavOpen}

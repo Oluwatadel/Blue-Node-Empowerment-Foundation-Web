@@ -3,28 +3,35 @@ export const ADMIN_PASSWORD = "bluenode2026";
 export const EVENTS_STORAGE_KEY = "bluenode-upcoming-events";
 export const PROGRAMS_STORAGE_KEY = "bluenode-programs";
 export const SOCIAL_LINKS_STORAGE_KEY = "bluenode-social-links";
+export const USERS_STORAGE_KEY = "bluenode-users";
+export const VOLUNTEERS_STORAGE_KEY = "bluenode-volunteers";
 export const ADMIN_SESSION_KEY = "bluenode-admin-auth";
 export const HOME_HERO_IMAGE_ID = "1BPdzTrpajXolvDUkDgVBZmLxW7VLiqiG";
 export const socialIconOptions = ["facebook", "instagram", "x", "linkedin", "youtube", "tiktok", "whatsapp", "email"];
-
-export const defaultEvents = [
-  {
-    id: "event-school-drive",
-    title: "Back-to-School Support Drive",
-    location: "Abeokuta, Ogun State",
-    dateTime: "2026-06-20T10:00",
-    description: "Distribution of school supplies and learning materials for children in underserved communities.",
-    flyerImage: "/assets/images/Bluenode.jpg"
-  },
-  {
-    id: "event-medical-outreach",
-    title: "Community Medical Outreach",
-    location: "Obantoko, Abeokuta",
-    dateTime: "2026-07-05T09:00",
-    description: "Free checkups, health screening, and medication support for families and elderly residents.",
-    flyerImage: "/assets/images/Bluenode.jpg"
-  }
+export const portfolioOptions = [
+  "members",
+  "Executive director",
+  "Founder",
+  "cofounder",
+  "PRO",
+  "Tech Lead",
+  "Program Cordinator",
+  "Secretary"
 ];
+export const careerOptions = [
+  "Community leadership",
+  "Program management",
+  "Public relations",
+  "Technology and systems",
+  "Operations and logistics",
+  "Secretary and administration",
+  "Project coordination",
+  "Field outreach",
+  "Media and communications",
+  "Other"
+];
+
+export const defaultEvents = [];
 
 export const navItems = [
   { label: "Home", href: "#home", route: "home" },
@@ -61,58 +68,9 @@ export const aboutCards = [
   }
 ];
 
-export const teamMembers = [
-  {
-    name: "Aisha Bello",
-    post: "Executive Director",
-    imageId: "162a4Li42i5tDZT2fOF2Yie6-rJhLxVpD"
-  },
-  {
-    name: "Tunde Akinyemi",
-    post: "Programs Lead",
-    imageId: "1lKs1X5RZADW7lOLPShgxodc0svs2WU2G"
-  },
-  {
-    name: "Maryam Sani",
-    post: "Outreach Coordinator",
-    imageId: "121afMcxqZH84x5t58lnUpf4aveu2AftY"
-  },
-  {
-    name: "David Okafor",
-    post: "Partnerships Lead",
-    imageId: "1uDZobCxTKM4LEL89oDxoK1DIOemRjiND"
-  },
-  {
-    name: "Chioma Nwosu",
-    post: "Communications Lead",
-    imageId: "13aU-XwstyGFJ061Xj0UHm6vhUuiFqHAC"
-  },
-  {
-    name: "Ibrahim Musa",
-    post: "Volunteer Lead",
-    imageId: "1cKs8W_9gtBS8oMFyc05oyPUcA1sMz2Zf"
-  },
-  {
-    name: "Esther Peter",
-    post: "Education Officer",
-    imageId: "1tgnoJ0tEVJ8eQJHbTLSx1Tf7y2RRzo-U"
-  },
-  {
-    name: "Oluwaseun Adeyemi",
-    post: "Health Outreach Lead",
-    imageId: "1ZAPZE7zig_cMbFAnWUGyjoW8RpCHys2r"
-  },
-  {
-    name: "Zainab Hassan",
-    post: "Operations Manager",
-    imageId: "1nVD61yfhpMus86xps6TlcOvz5Taboor2"
-  },
-  {
-    name: "Kingsley Eze",
-    post: "Media Coordinator",
-    imageId: "1bVw1AH2DRb0FMHbV_m2uVUACBvBshBtr"
-  }
-];
+export const defaultUsers = [];
+export const teamMembers = [];
+export const defaultVolunteers = [];
 
 export const defaultPrograms = [
   {

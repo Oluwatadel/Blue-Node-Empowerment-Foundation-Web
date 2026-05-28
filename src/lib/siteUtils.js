@@ -1,11 +1,12 @@
 import {
   ADMIN_SESSION_KEY,
-  defaultEvents,
   defaultPrograms,
   defaultSocialLinks,
   EVENTS_STORAGE_KEY,
   PROGRAMS_STORAGE_KEY,
   SOCIAL_LINKS_STORAGE_KEY,
+  USERS_STORAGE_KEY,
+  VOLUNTEERS_STORAGE_KEY,
   navItems
 } from "../content/siteContent.js";
 
@@ -13,9 +14,51 @@ export function getDriveThumbnailUrl(fileId, size = 1800) {
   return `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}`;
 }
 
+function extractGoogleDriveFileId(source) {
+  if (!source || typeof source !== "string") {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(source);
+    const host = parsed.hostname.replace(/^www\./, "");
+    if (!host.includes("drive.google.com") && !host.includes("docs.google.com")) {
+      return null;
+    }
+
+    const pathMatches = [
+      parsed.pathname.match(/\/file\/d\/([^/]+)/),
+      parsed.pathname.match(/\/uc$/),
+      parsed.search.match(/[?&]id=([^&]+)/)
+    ];
+
+    const pathId = pathMatches[0]?.[1] || pathMatches[2]?.[1];
+    if (pathId) {
+      return pathId;
+    }
+
+    if (parsed.pathname.includes("/uc") && parsed.searchParams.get("id")) {
+      return parsed.searchParams.get("id");
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 export function getImageSources(source) {
   if (!source) {
     return [];
+  }
+
+  const driveFileId = extractGoogleDriveFileId(source);
+  if (driveFileId) {
+    return [
+      `https://lh3.googleusercontent.com/d/${driveFileId}=w1000`,
+      `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w1000`,
+      `https://drive.google.com/uc?export=view&id=${driveFileId}`
+    ];
   }
 
   if (
@@ -37,7 +80,7 @@ export function getImageSources(source) {
 }
 
 export function readStoredEvents() {
-  return readStoredCollection(EVENTS_STORAGE_KEY, defaultEvents);
+  return readStoredCollection(EVENTS_STORAGE_KEY, []);
 }
 
 export function readStoredPrograms() {
@@ -48,19 +91,102 @@ export function readStoredSocialLinks() {
   return readStoredCollection(SOCIAL_LINKS_STORAGE_KEY, defaultSocialLinks);
 }
 
-export function readStoredCollection(storageKey, fallback) {
+export function readStoredUsers() {
+  return readStoredCollection(USERS_STORAGE_KEY, [], transformStoredUsers, VOLUNTEERS_STORAGE_KEY);
+}
+
+export function readStoredVolunteers() {
+  return readStoredUsers();
+}
+
+function transformStoredUsers(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item, index) => {
+    const legacyUser = item?.user ?? item ?? {};
+    return {
+      id: item?.id || `user-${index + 1}`,
+      user: {
+        name: legacyUser.name || "",
+        portfolio: normalizePortfolioValue(legacyUser.portfolio || legacyUser.post || ""),
+        imageUrl: legacyUser.imageUrl || legacyUser.imageId || "",
+        phoneNumber: legacyUser.phoneNumber || legacyUser.phone || "",
+        email: legacyUser.email || "",
+        career: legacyUser.career || ""
+      }
+    };
+  });
+}
+
+export function normalizePortfolioValue(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+
+  if (!normalized) {
+    return "members";
+  }
+
+  if (normalized === "executive director") {
+    return "Executive director";
+  }
+
+  if (normalized === "programs lead") {
+    return "Founder";
+  }
+
+  if (normalized === "ceo") {
+    return "Founder";
+  }
+
+  if (normalized === "founder") {
+    return "Founder";
+  }
+
+  if (normalized === "cofounder" || normalized === "co-founder") {
+    return "cofounder";
+  }
+
+  if (normalized === "outreach coordinator") {
+    return "PRO";
+  }
+
+  if (normalized === "partnerships lead") {
+    return "Tech Lead";
+  }
+
+  if (normalized === "communications lead") {
+    return "Program Cordinator";
+  }
+
+  if (normalized === "volunteer lead") {
+    return "Secretary";
+  }
+
+  if (normalized === "education officer" || normalized === "health outreach lead" || normalized === "operations manager" || normalized === "media coordinator") {
+    return "members";
+  }
+
+  return value;
+}
+
+export function readStoredCollection(storageKey, fallback, transform, legacyStorageKey) {
   if (typeof window === "undefined") {
     return fallback;
   }
 
   try {
-    const raw = window.localStorage.getItem(storageKey);
+    const raw = window.localStorage.getItem(storageKey) ?? (legacyStorageKey ? window.localStorage.getItem(legacyStorageKey) : null);
     if (!raw) {
       return fallback;
     }
 
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : fallback;
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return fallback;
+    }
+
+    return typeof transform === "function" ? transform(parsed) : parsed;
   } catch {
     return fallback;
   }
@@ -115,6 +241,10 @@ export function getRouteFromHash(hash) {
     return "home";
   }
 
+  if (hash === "#team") {
+    return "team";
+  }
+
   if (hash.startsWith("#program/")) {
     return "program-gallery";
   }
@@ -156,6 +286,10 @@ export function getActiveNavRoute(route) {
 
   if (route === "event-detail") {
     return "events";
+  }
+
+  if (route === "team") {
+    return "home";
   }
 
   return navItems.some((item) => item.route === route) ? route : "home";

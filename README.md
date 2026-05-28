@@ -18,6 +18,13 @@ The site currently includes:
 ## Project Structure
 
 ```text
+api/
+  content.js    Vercel API route backed by Neon
+  _db.js        Neon pool helper
+
+migrations/
+  001_init.sql  Initial database schema for Neon
+
 src/
   App.jsx        Main app layout, page routing, program/gallery data
   main.jsx       React entry point
@@ -95,6 +102,26 @@ Because the app uses Vite and hash-based routing, it can be deployed easily to m
 - Vercel
 - GitHub Pages
 - Shared/static hosting environments
+
+### Neon database setup
+
+1. Create a Neon database and copy the connection string.
+2. Add it to your local `.env` file or to Vercel as `DATABASE_URL`.
+3. Run the SQL in [migrations/001_init.sql](./migrations/001_init.sql) once in the Neon SQL editor, or let the API create the tables on first request.
+
+For local development, create a `.env` file next to `package.json`:
+
+```env
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/DB?sslmode=require
+```
+
+On Vercel:
+- Open your project settings
+- Go to Environment Variables
+- Add `DATABASE_URL`
+- Paste the Neon connection string there
+
+If you want the schema created manually instead of by the API, run [migrations/001_init.sql](./migrations/001_init.sql) in Neon before first deploy.
 
 ## Developer
 

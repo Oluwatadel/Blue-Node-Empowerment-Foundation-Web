@@ -1,7 +1,6 @@
 import {
-  defaultEvents,
   defaultPrograms,
-  defaultSocialLinks
+  defaultSocialLinks,
 } from "../src/content/siteContent.js";
 import { getPool } from "./_db.js";
 
@@ -64,13 +63,26 @@ async function ensureSchema(pool) {
       description TEXT NOT NULL DEFAULT ''
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      portfolio TEXT NOT NULL,
+      image_url TEXT NOT NULL DEFAULT '',
+      phone_number TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      career TEXT NOT NULL DEFAULT ''
+    )
+  `);
 }
 
 async function loadContent(pool) {
-  const [eventsResult, programsResult, socialLinksResult] = await Promise.all([
+  const [eventsResult, programsResult, socialLinksResult, usersResult] = await Promise.all([
     pool.query("SELECT id, title, location, date_time, description, flyer_image FROM events ORDER BY date_time ASC"),
     pool.query("SELECT slug, id, title, body, image_id, gallery_image_ids FROM programs ORDER BY title ASC"),
-    pool.query("SELECT id, name, href, icon, handle, description FROM social_links ORDER BY name ASC")
+    pool.query("SELECT id, name, href, icon, handle, description FROM social_links ORDER BY name ASC"),
+    pool.query("SELECT id, name, portfolio, image_url, phone_number, email, career FROM users ORDER BY name ASC")
   ]);
 
   return {
@@ -97,8 +109,46 @@ async function loadContent(pool) {
       icon: row.icon,
       handle: row.handle || "",
       description: row.description || ""
+    })),
+    users: usersResult.rows.map((row) => ({
+      id: row.id,
+      user: {
+        name: row.name,
+        portfolio: row.portfolio,
+        imageUrl: row.image_url || "",
+        phoneNumber: row.phone_number || "",
+        email: row.email || "",
+        career: row.career || ""
+      }
     }))
   };
+}
+
+async function migrateLegacyVolunteers(pool) {
+  const usersCountResult = await pool.query("SELECT COUNT(*)::int AS count FROM users");
+  if (usersCountResult.rows[0]?.count > 0) {
+    return;
+  }
+
+  try {
+    const legacyResult = await pool.query("SELECT id, name, post, image_id FROM volunteers ORDER BY name ASC");
+
+    if (legacyResult.rows.length === 0) {
+      return;
+    }
+
+    for (const legacyUser of legacyResult.rows) {
+      await pool.query(
+        `
+          INSERT INTO users (id, name, portfolio, image_url, phone_number, email, career)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `,
+        [legacyUser.id, legacyUser.name, legacyUser.post, legacyUser.image_id || "", "", "", ""]
+      );
+    }
+  } catch {
+    return;
+  }
 }
 
 async function seedDefaults(pool) {
@@ -108,18 +158,6 @@ async function seedDefaults(pool) {
     await client.query("BEGIN");
 
     const existing = await loadContent(client);
-
-    if (existing.events.length === 0) {
-      for (const event of defaultEvents) {
-        await client.query(
-          `
-            INSERT INTO events (id, title, location, date_time, description, flyer_image)
-            VALUES ($1, $2, $3, $4, $5, $6)
-          `,
-          [event.id, event.title, event.location, event.dateTime, event.description, event.flyerImage || ""]
-        );
-      }
-    }
 
     if (existing.programs.length === 0) {
       for (const program of defaultPrograms) {
@@ -167,11 +205,12 @@ async function replaceContent(pool, content) {
   const events = Array.isArray(content?.events) ? content.events : [];
   const programs = Array.isArray(content?.programs) ? content.programs : [];
   const socialLinks = Array.isArray(content?.socialLinks) ? content.socialLinks : [];
+  const users = Array.isArray(content?.users) ? content.users : [];
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
-    await client.query("TRUNCATE TABLE events, programs, social_links");
+    await client.query("TRUNCATE TABLE events, programs, social_links, users");
 
     for (const event of events) {
       await client.query(
@@ -210,6 +249,25 @@ async function replaceContent(pool, content) {
       );
     }
 
+    for (const userEntry of users) {
+      const user = userEntry.user ?? userEntry;
+      await client.query(
+        `
+          INSERT INTO users (id, name, portfolio, image_url, phone_number, email, career)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `,
+        [
+          userEntry.id,
+          user.name,
+          user.portfolio,
+          user.imageUrl || "",
+          user.phoneNumber || "",
+          user.email || "",
+          user.career || ""
+        ]
+      );
+    }
+
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
@@ -227,6 +285,7 @@ export default async function handler(request) {
     await ensureSchema(pool);
 
     if (request.method === "GET") {
+      await migrateLegacyVolunteers(pool);
       const content = await seedDefaults(pool);
       return toJsonResponse(content);
     }

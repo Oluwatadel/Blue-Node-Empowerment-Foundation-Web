@@ -1,10 +1,62 @@
-import { useEffect, useState } from "react";
-import { formatEventDate, slugify } from "../lib/siteUtils.js";
-import { socialIconOptions } from "../content/siteContent.js";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { formatEventDate, normalizePortfolioValue, slugify } from "../lib/siteUtils.js";
+import { careerOptions, portfolioOptions, socialIconOptions } from "../content/siteContent.js";
+import { ManagedImage } from "./shared.jsx";
+
+function ModalShell({ title, subtitle, onClose, children, footer }) {
+  return (
+    <div className="admin-modal-overlay" role="presentation" onClick={onClose}>
+      <div className="admin-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+        <div className="admin-modal-header">
+          <div>
+            <p className="admin-card-label">{subtitle}</p>
+            <h3>{title}</h3>
+          </div>
+          <button type="button" className="admin-modal-close" onClick={onClose} aria-label="Close modal">
+            ×
+          </button>
+        </div>
+        {children}
+        <div className="admin-modal-footer">{footer}</div>
+      </div>
+    </div>
+  );
+}
+
+function TableCard({ title, subtitle, createLabel, onCreate, columns, children, tableClassName = "" }) {
+  return (
+    <article className="admin-content-card admin-table-card">
+      <div className="admin-section-head">
+        <div>
+          <p className="admin-card-label">{subtitle}</p>
+          <h3>{title}</h3>
+        </div>
+        {createLabel && onCreate ? (
+          <button type="button" className="btn secondary" onClick={onCreate}>
+            {createLabel}
+          </button>
+        ) : null}
+      </div>
+      <div className="admin-table-wrap">
+        <table className={tableClassName ? `admin-table ${tableClassName}` : "admin-table"}>
+          <thead>
+            <tr>
+              {columns.map((column) => (
+                <th key={column}>{column}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>{children}</tbody>
+        </table>
+      </div>
+    </article>
+  );
+}
 
 export function AdminLogin({ onLogin, error }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -16,11 +68,22 @@ export function AdminLogin({ onLogin, error }) {
       <section className="admin-login-stage">
         <div className="admin-login-shell">
           <div className="admin-login-panel admin-login-copy">
+            <div className="admin-login-brand-row">
+              <img src="/assets/images/logo.PNG" alt="Blue Node Foundation" className="admin-login-brand-mark" />
+              <span className="admin-login-brand-pill">Secure access</span>
+            </div>
             <p className="section-kicker admin-login-kicker">Admin dashboard</p>
-            <h2>Admin sign in</h2>
+            <h2>Sign in to manage the Blue Node website.</h2>
             <p className="page-intro">
-              Access the content management area to publish events, update timelines, and keep the BlueNode website accurate.
+              Access the content management area to publish events, update timelines, and keep the Blue Node website accurate.
             </p>
+
+            <div className="admin-login-highlights" aria-hidden="true">
+              <span>Events</span>
+              <span>Programs</span>
+              <span>Users</span>
+              <span>Social links</span>
+            </div>
 
             <form className="admin-login-form" onSubmit={handleSubmit}>
               <label className="admin-login-field">
@@ -39,11 +102,19 @@ export function AdminLogin({ onLogin, error }) {
                   <span className="admin-login-field-icon admin-login-field-icon-lock" aria-hidden="true" />
                   <input
                     aria-label="Password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                   />
+                  <button
+                    type="button"
+                    className="admin-login-visibility-toggle"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
                 </span>
               </label>
               <p className="admin-login-help">Forgot password?</p>
@@ -61,7 +132,7 @@ export function AdminLogin({ onLogin, error }) {
               <p className="admin-login-aside-label">Workspace</p>
               <h3>Content operations</h3>
               <p>
-                Manage public updates from one place with a calm, focused workflow built for the BlueNode team.
+                Manage public updates from one place with a calm, focused workflow built for the Blue Node team.
               </p>
             </div>
             <div className="admin-login-metrics">
@@ -85,6 +156,7 @@ export function AdminDashboard({
   events,
   programs,
   socialLinks,
+  users,
   onLogout,
   onSaveEvent,
   onEditEvent,
@@ -93,10 +165,12 @@ export function AdminDashboard({
   onDeleteProgram,
   onSaveSocialLink,
   onDeleteSocialLink,
+  onSaveUser,
+  onDeleteUser,
   editingEvent,
   setEditingEvent
 }) {
-  const emptyForm = {
+  const emptyEventForm = {
     id: "",
     title: "",
     location: "",
@@ -104,10 +178,6 @@ export function AdminDashboard({
     description: "",
     flyerImage: ""
   };
-  const [formState, setFormState] = useState(emptyForm);
-  const [activeSection, setActiveSection] = useState("overview");
-  const [editingProgram, setEditingProgram] = useState(null);
-  const [editingSocialLink, setEditingSocialLink] = useState(null);
   const emptyProgramForm = {
     id: "",
     slug: "",
@@ -115,6 +185,16 @@ export function AdminDashboard({
     body: "",
     imageId: "",
     galleryImageIds: ""
+  };
+  const emptyUserForm = {
+    id: "",
+    name: "",
+    portfolio: portfolioOptions[0],
+    imageUrl: "",
+    phoneNumber: "",
+    email: "",
+    career: careerOptions[0],
+    careerOther: ""
   };
   const emptySocialForm = {
     id: "",
@@ -124,17 +204,45 @@ export function AdminDashboard({
     handle: "",
     description: ""
   };
+
+  const [activeSection, setActiveSection] = useState("overview");
+  const [eventFormState, setEventFormState] = useState(emptyEventForm);
   const [programFormState, setProgramFormState] = useState(emptyProgramForm);
+  const [userFormState, setUserFormState] = useState(emptyUserForm);
   const [socialFormState, setSocialFormState] = useState(emptySocialForm);
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [programModalOpen, setProgramModalOpen] = useState(false);
+  const [userModalOpen, setUserModalOpen] = useState(false);
+  const [socialModalOpen, setSocialModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editingProgram, setEditingProgram] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editingSocialLink, setEditingSocialLink] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef(null);
+
+  const sortedEvents = useMemo(
+    () => [...events].sort((left, right) => new Date(left.dateTime) - new Date(right.dateTime)),
+    [events]
+  );
+  const upcomingCount = sortedEvents.length;
+  const nextEvent = sortedEvents[0];
+  const adminSections = [
+    { id: "overview", label: "Overview" },
+    { id: "events", label: "Events" },
+    { id: "programs", label: "Programs" },
+    { id: "users", label: "User management" },
+    { id: "socials", label: "Social media" }
+  ];
 
   useEffect(() => {
     if (editingEvent) {
-      setFormState({
-        ...emptyForm,
+      setEventFormState({
+        ...emptyEventForm,
         ...editingEvent
       });
-    } else {
-      setFormState(emptyForm);
+      setEventModalOpen(true);
     }
   }, [editingEvent]);
 
@@ -148,12 +256,28 @@ export function AdminDashboard({
         imageId: editingProgram.imageId,
         galleryImageIds: editingProgram.galleryImageIds.join("\n")
       });
-      setActiveSection("programs");
-      return;
+      setProgramModalOpen(true);
     }
-
-    setProgramFormState(emptyProgramForm);
   }, [editingProgram]);
+
+  useEffect(() => {
+    if (editingUser) {
+      const user = editingUser.user ?? editingUser;
+      setUserFormState({
+        id: editingUser.id || "",
+        name: user.name || "",
+        portfolio: portfolioOptions.includes(normalizePortfolioValue(user.portfolio))
+          ? normalizePortfolioValue(user.portfolio)
+          : portfolioOptions[0],
+        imageUrl: user.imageUrl || "",
+        phoneNumber: user.phoneNumber || "",
+        email: user.email || "",
+        career: careerOptions.includes(user.career) ? user.career : "Other",
+        careerOther: careerOptions.includes(user.career) ? "" : user.career || ""
+      });
+      setUserModalOpen(true);
+    }
+  }, [editingUser]);
 
   useEffect(() => {
     if (editingSocialLink) {
@@ -165,49 +289,115 @@ export function AdminDashboard({
         handle: editingSocialLink.handle || "",
         description: editingSocialLink.description || ""
       });
-      setActiveSection("socials");
-      return;
+      setSocialModalOpen(true);
     }
-
-    setSocialFormState(emptySocialForm);
   }, [editingSocialLink]);
 
-  function updateField(field, value) {
-    setFormState((current) => ({
-      ...current,
-      [field]: value
-    }));
-  }
+  useEffect(() => {
+    function handleResize() {
+      if (window.innerWidth > 1100) {
+        setIsSidebarOpen(false);
+      }
+    }
 
-  function handleSubmit(event) {
-    event.preventDefault();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
-    const payload = {
-      ...formState,
-      id: formState.id || `event-${Date.now()}`
-    };
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (!isProfileMenuOpen) {
+        return;
+      }
 
-    onSaveEvent(payload);
-    setFormState(emptyForm);
-  }
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setIsProfileMenuOpen(false);
+      }
+    }
 
-  function handleCancelEdit() {
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [isProfileMenuOpen]);
+
+  function resetEventModal() {
+    setEventModalOpen(false);
     setEditingEvent(null);
-    setFormState(emptyForm);
+    setEventFormState(emptyEventForm);
   }
 
-  function updateProgramField(field, value) {
-    setProgramFormState((current) => ({
-      ...current,
-      [field]: value
-    }));
+  function resetProgramModal() {
+    setProgramModalOpen(false);
+    setEditingProgram(null);
+    setProgramFormState(emptyProgramForm);
   }
 
-  function handleProgramSubmit(event) {
-    event.preventDefault();
+  function resetUserModal() {
+    setUserModalOpen(false);
+    setEditingUser(null);
+    setUserFormState(emptyUserForm);
+  }
 
+  function resetSocialModal() {
+    setSocialModalOpen(false);
+    setEditingSocialLink(null);
+    setSocialFormState(emptySocialForm);
+  }
+
+  function toggleSidebar() {
+    setIsSidebarOpen((current) => !current);
+  }
+
+  function toggleProfileMenu() {
+    setIsProfileMenuOpen((current) => !current);
+  }
+
+  function handleLogout() {
+    setIsProfileMenuOpen(false);
+    onLogout();
+  }
+
+  function selectSection(sectionId) {
+    setActiveSection(sectionId);
+    if (window.innerWidth <= 1100) {
+      setIsSidebarOpen(false);
+    }
+  }
+
+  function openEventCreate() {
+    setEditingEvent(null);
+    setEventFormState(emptyEventForm);
+    setEventModalOpen(true);
+  }
+
+  function openProgramCreate() {
+    setEditingProgram(null);
+    setProgramFormState(emptyProgramForm);
+    setProgramModalOpen(true);
+  }
+
+  function openUserCreate() {
+    setEditingUser(null);
+    setUserFormState(emptyUserForm);
+    setUserModalOpen(true);
+  }
+
+  function openSocialCreate() {
+    setEditingSocialLink(null);
+    setSocialFormState(emptySocialForm);
+    setSocialModalOpen(true);
+  }
+
+  function saveEvent() {
+    onSaveEvent({
+      ...eventFormState,
+      id: eventFormState.id || `event-${Date.now()}`
+    });
+    resetEventModal();
+  }
+
+  function saveProgram() {
     const slug = programFormState.slug || slugify(programFormState.title);
-    const payload = {
+    onSaveProgram({
       id: programFormState.id || slug || `program-${Date.now()}`,
       slug,
       title: programFormState.title,
@@ -217,443 +407,801 @@ export function AdminDashboard({
         .split(/\r?\n|,/)
         .map((item) => item.trim())
         .filter(Boolean)
-    };
-
-    onSaveProgram(payload);
-    setEditingProgram(null);
-    setProgramFormState(emptyProgramForm);
+    });
+    resetProgramModal();
   }
 
-  function handleCancelProgramEdit() {
-    setEditingProgram(null);
-    setProgramFormState(emptyProgramForm);
+  function saveUser() {
+    const careerValue =
+      userFormState.career === "Other"
+        ? userFormState.careerOther.trim() || "Other"
+        : userFormState.career;
+
+    onSaveUser({
+      id: userFormState.id || `user-${Date.now()}`,
+      user: {
+        name: userFormState.name,
+        portfolio: userFormState.portfolio,
+        imageUrl: userFormState.imageUrl,
+        phoneNumber: userFormState.phoneNumber,
+        email: userFormState.email,
+        career: careerValue
+      }
+    });
+    resetUserModal();
   }
 
-  function updateSocialField(field, value) {
-    setSocialFormState((current) => ({
-      ...current,
-      [field]: value
-    }));
-  }
-
-  function handleSocialSubmit(event) {
-    event.preventDefault();
-
-    const payload = {
+  function saveSocialLink() {
+    onSaveSocialLink({
       id: socialFormState.id || `social-${Date.now()}`,
       name: socialFormState.name,
       href: socialFormState.href,
       icon: socialFormState.icon,
       handle: socialFormState.handle,
       description: socialFormState.description
-    };
-
-    onSaveSocialLink(payload);
-    setEditingSocialLink(null);
-    setSocialFormState(emptySocialForm);
+    });
+    resetSocialModal();
   }
 
-  function handleCancelSocialEdit() {
-    setEditingSocialLink(null);
-    setSocialFormState(emptySocialForm);
+  function askDelete(kind, item) {
+    const id =
+      kind === "event"
+        ? item.id
+        : kind === "program"
+          ? item.slug
+          : kind === "user"
+            ? item.id || item.user?.name || item.name
+            : item.id;
+    const label =
+      kind === "event"
+        ? item.title
+        : kind === "program"
+          ? item.title
+          : kind === "user"
+            ? item.user?.name || item.name
+            : item.name;
+
+    setDeleteTarget({ kind, id, label });
   }
 
-  const sortedEvents = [...events].sort((left, right) => new Date(left.dateTime) - new Date(right.dateTime));
-  const upcomingCount = sortedEvents.length;
-  const nextEvent = sortedEvents[0];
-  const adminSections = [
-    { id: "overview", label: "Overview" },
-    { id: "events", label: "Events" },
-    { id: "programs", label: "Programs" },
-    { id: "socials", label: "Social media" }
-  ];
+  function confirmDelete() {
+    if (!deleteTarget) {
+      return;
+    }
+
+    if (deleteTarget.kind === "event") {
+      onDeleteEvent(deleteTarget.id);
+      if (editingEvent?.id === deleteTarget.id) {
+        setEditingEvent(null);
+      }
+    }
+
+    if (deleteTarget.kind === "program") {
+      onDeleteProgram(deleteTarget.id);
+      if (editingProgram && (editingProgram.slug === deleteTarget.id || editingProgram.id === deleteTarget.id)) {
+        setEditingProgram(null);
+      }
+    }
+
+    if (deleteTarget.kind === "user") {
+      onDeleteUser(deleteTarget.id);
+      if ((editingUser?.id || editingUser?.user?.name || editingUser?.name) === deleteTarget.id) {
+        setEditingUser(null);
+      }
+    }
+
+    if (deleteTarget.kind === "social") {
+      onDeleteSocialLink(deleteTarget.id);
+      if (editingSocialLink?.id === deleteTarget.id) {
+        setEditingSocialLink(null);
+      }
+    }
+
+    setDeleteTarget(null);
+  }
+
+  const userRows = users.map((entry) => ({
+    id: entry.id || entry.user?.name || entry.name,
+    data: {
+      ...(entry.user ?? entry),
+      portfolio: normalizePortfolioValue((entry.user ?? entry).portfolio)
+    }
+  }));
+
+  function renderTableRows(rows, renderRow) {
+    return rows.map(renderRow);
+  }
 
   return (
     <main className="admin-main-page">
-      <section className="admin-shell">
+      <section className={isSidebarOpen ? "admin-shell sidebar-open" : "admin-shell"}>
+        <button
+          type="button"
+          className="admin-sidebar-backdrop"
+          aria-label="Close admin menu"
+          aria-hidden={!isSidebarOpen}
+          tabIndex={isSidebarOpen ? 0 : -1}
+          onClick={() => setIsSidebarOpen(false)}
+        />
         <aside className="admin-sidebar">
           <div className="admin-sidebar-brand">
-            <p className="section-kicker">Blue Node</p>
-            <h2>Content control</h2>
-            <p>Manage public-facing updates without leaving the dashboard.</p>
+            <img src="/assets/images/logo.PNG" alt="Blue Node Foundation" className="admin-sidebar-logo" />
+            <div>
+              <p className="section-kicker">Blue Node</p>
+              <h2>Admin</h2>
+            </div>
           </div>
 
+          <div className="admin-profile-card">
+            <div className="admin-profile-avatar" aria-hidden="true">
+              BN
+            </div>
+            <div className="admin-profile-copy">
+              <strong>Blue Node Admin</strong>
+              <span>Premium user</span>
+            </div>
+          </div>
+
+          <p className="admin-menu-label">Main Menu</p>
           <nav className="admin-nav" aria-label="Admin sections">
             {adminSections.map((section) => (
               <button
                 key={section.id}
                 type="button"
                 className={activeSection === section.id ? "active" : undefined}
-                onClick={() => setActiveSection(section.id)}
+                onClick={() => selectSection(section.id)}
               >
+                <span className="admin-nav-dot" aria-hidden="true" />
                 {section.label}
+                <span className="admin-nav-arrow" aria-hidden="true">
+                  {">"}
+                </span>
               </button>
             ))}
           </nav>
-
-          <div className="admin-sidebar-summary">
-            <div className="admin-mini-card">
-              <span className="admin-stat-label">Events</span>
-              <strong>{events.length}</strong>
-            </div>
-            <div className="admin-mini-card">
-              <span className="admin-stat-label">Programs</span>
-              <strong>{programs.length}</strong>
-            </div>
-            <div className="admin-mini-card">
-              <span className="admin-stat-label">Social links</span>
-              <strong>{socialLinks.length}</strong>
-            </div>
-          </div>
-
-          <button type="button" className="admin-logout" onClick={onLogout}>
-            Logout
-          </button>
         </aside>
 
         <div className="admin-dashboard">
+          <div className="admin-toolbar">
+            <div className="admin-toolbar-left">
+              <button
+                type="button"
+                className="admin-toolbar-menu"
+                aria-label={isSidebarOpen ? "Close admin menu" : "Open admin menu"}
+                aria-expanded={isSidebarOpen}
+                onClick={toggleSidebar}
+              >
+                <span />
+                <span />
+                <span />
+              </button>
+            </div>
+            <div className="admin-toolbar-search">
+              <input type="search" placeholder="Search Here" aria-label="Search dashboard" />
+            </div>
+            <div className="admin-toolbar-right" ref={profileMenuRef}>
+              <button
+                type="button"
+                className="admin-toolbar-profile"
+                aria-haspopup="menu"
+                aria-expanded={isProfileMenuOpen}
+                onClick={toggleProfileMenu}
+              >
+                <span className="admin-toolbar-avatar">A</span>
+                <span className="admin-toolbar-profile-copy">
+                  <strong>Admin</strong>
+                  <span>Profile</span>
+                </span>
+                <span className="admin-toolbar-profile-caret" aria-hidden="true">
+                  {"▾"}
+                </span>
+              </button>
+
+              {isProfileMenuOpen ? (
+                <div className="admin-profile-dropdown" role="menu" aria-label="Profile menu">
+                  <button type="button" className="admin-profile-dropdown-item" onClick={handleLogout} role="menuitem">
+                    Logout
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
           <div className="admin-hero">
             <div>
-              <p className="section-kicker">Admin dashboard</p>
+              <p className="section-kicker">Dashboard</p>
               <h2>
                 {activeSection === "overview" && "Website content overview"}
                 {activeSection === "events" && "Manage upcoming events"}
                 {activeSection === "programs" && "Manage programs and galleries"}
+                {activeSection === "users" && "Manage users and team members"}
                 {activeSection === "socials" && "Manage social media presence"}
               </h2>
               <p className="page-intro">
                 {activeSection === "overview" &&
-                  "Review publishing status across events, program galleries, and social channels from one workspace."}
+                  "Review everything in one screen, then edit, delete, or create each content type from its own modal."}
                 {activeSection === "events" &&
                   "Create and maintain event listings that power the home page countdown and spotlight section."}
                 {activeSection === "programs" &&
                   "Update program titles, descriptions, cover images, and gallery image collections shown publicly."}
+                {activeSection === "users" &&
+                  "Keep user profiles, roles, photos, contact details, and career notes current across the public team section."}
                 {activeSection === "socials" &&
                   "Keep the home and socials pages current with the right links, handles, and platform descriptions."}
               </p>
             </div>
+            <div className="admin-hero-badges" aria-hidden="true">
+              <span className="admin-hero-badge">Fast edits</span>
+              <span className="admin-hero-badge">Public sync</span>
+              <span className="admin-hero-badge">Secure session</span>
+            </div>
           </div>
 
-          {activeSection === "overview" ? (
-            <>
-              <div className="admin-overview-grid">
-                <article className="admin-stat-card">
-                  <span className="admin-stat-label">Scheduled events</span>
-                  <strong>{upcomingCount}</strong>
-                  <p>{nextEvent ? nextEvent.title : "No event is currently scheduled."}</p>
-                </article>
-                <article className="admin-stat-card">
-                  <span className="admin-stat-label">Programs</span>
-                  <strong>{programs.length}</strong>
-                  <p>Gallery-driven program areas currently published on the website.</p>
-                </article>
-                <article className="admin-stat-card">
-                  <span className="admin-stat-label">Social channels</span>
-                  <strong>{socialLinks.length}</strong>
-                  <p>Channels available across the home footer and the dedicated socials page.</p>
-                </article>
-              </div>
-
-              <div className="admin-overview-notes">
-                <article className="admin-content-card">
-                  <div className="admin-card-heading">
-                    <div>
-                      <p className="admin-card-label">Next event</p>
-                      <h3>{nextEvent ? nextEvent.title : "No event scheduled"}</h3>
-                    </div>
-                  </div>
-                  <p className="admin-overview-text">
-                    {nextEvent
-                      ? `${formatEventDate(nextEvent.dateTime)} at ${nextEvent.location}.`
-                      : "Use the Events section to publish the next outreach activity."}
-                  </p>
-                </article>
-                <article className="admin-content-card">
-                  <div className="admin-card-heading">
-                    <div>
-                      <p className="admin-card-label">Publishing flow</p>
-                      <h3>What updates where</h3>
-                    </div>
-                  </div>
-                  <p className="admin-overview-text">
-                    Events feed the home spotlight. Programs power the public gallery pages. Social links appear in the footer and socials directory.
-                  </p>
-                </article>
-              </div>
-            </>
-          ) : null}
-
-          {activeSection === "events" ? (
-            <div className="admin-workspace">
-              <form className="admin-form admin-content-card admin-editor-card" onSubmit={handleSubmit}>
-                <div className="admin-card-heading">
-                  <div>
-                    <p className="admin-card-label">{editingEvent ? "Editing mode" : "New content"}</p>
-                    <h3>{editingEvent ? "Edit event" : "Add upcoming event"}</h3>
-                  </div>
-                  <span className="admin-chip">{editingEvent ? "Draft update" : "Publish-ready"}</span>
-                </div>
-
-                <div className="admin-form-grid">
-                  <label className="admin-span-2">
-                    Event title
-                    <input
-                      value={formState.title}
-                      onChange={(event) => updateField("title", event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label>
-                    Location
-                    <input
-                      value={formState.location}
-                      onChange={(event) => updateField("location", event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label>
-                    Event date and time
-                    <input
-                      type="datetime-local"
-                      value={formState.dateTime}
-                      onChange={(event) => updateField("dateTime", event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label className="admin-span-2">
-                    Flyer image URL or Drive ID
-                    <input
-                      value={formState.flyerImage}
-                      onChange={(event) => updateField("flyerImage", event.target.value)}
-                      placeholder="Drive ID or /assets/images/Bluenode.jpg"
-                    />
-                  </label>
-                  <label className="admin-span-2">
-                    Description
-                    <textarea
-                      rows="5"
-                      value={formState.description}
-                      onChange={(event) => updateField("description", event.target.value)}
-                      required
-                    />
-                  </label>
-                </div>
-
-                <div className="admin-actions">
-                  <button type="submit" className="submit-btn">
-                    {editingEvent ? "Update event" : "Save event"}
-                  </button>
-                  {editingEvent ? (
-                    <button type="button" className="btn secondary" onClick={handleCancelEdit}>
-                      Cancel edit
-                    </button>
-                  ) : null}
-                </div>
-              </form>
-
-              <div className="admin-list">
-                {sortedEvents.map((event) => (
-                  <article className="admin-event-item" key={event.id}>
-                    <div className="admin-event-copy">
-                      <strong>{event.title}</strong>
-                      <span>{formatEventDate(event.dateTime)}</span>
-                      <p>{event.location}</p>
-                    </div>
-                    <div className="admin-item-actions">
-                      <button type="button" className="btn secondary" onClick={() => onEditEvent(event)}>
-                        Edit
-                      </button>
-                      <button type="button" className="btn danger" onClick={() => onDeleteEvent(event.id)}>
-                        Delete
-                      </button>
-                    </div>
+          <div className="admin-content-scroll">
+            {activeSection === "overview" ? (
+              <>
+                <div className="admin-metric-row">
+                  <article className="admin-metric-card">
+                    <span className="admin-stat-label">Scheduled events</span>
+                    <strong>{upcomingCount}</strong>
+                    <p>{nextEvent ? nextEvent.title : "No event is currently scheduled."}</p>
                   </article>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {activeSection === "programs" ? (
-            <div className="admin-workspace">
-              <form className="admin-form admin-content-card admin-editor-card" onSubmit={handleProgramSubmit}>
-                <div className="admin-card-heading">
-                  <div>
-                    <p className="admin-card-label">{editingProgram ? "Editing mode" : "New content"}</p>
-                    <h3>{editingProgram ? "Edit program" : "Add program"}</h3>
-                  </div>
-                </div>
-
-                <div className="admin-form-grid">
-                  <label className="admin-span-2">
-                    Program title
-                    <input
-                      value={programFormState.title}
-                      onChange={(event) => updateProgramField("title", event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label className="admin-span-2">
-                    Slug
-                    <input
-                      value={programFormState.slug}
-                      onChange={(event) => updateProgramField("slug", event.target.value)}
-                      placeholder="Auto-generated if left blank"
-                    />
-                  </label>
-                  <label className="admin-span-2">
-                    Cover image ID
-                    <input
-                      value={programFormState.imageId}
-                      onChange={(event) => updateProgramField("imageId", event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label className="admin-span-2">
-                    Gallery image IDs
-                    <textarea
-                      rows="8"
-                      value={programFormState.galleryImageIds}
-                      onChange={(event) => updateProgramField("galleryImageIds", event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label className="admin-span-2">
-                    Program body
-                    <textarea
-                      rows="5"
-                      value={programFormState.body}
-                      onChange={(event) => updateProgramField("body", event.target.value)}
-                      required
-                    />
-                  </label>
-                </div>
-
-                <div className="admin-actions">
-                  <button type="submit" className="submit-btn">
-                    {editingProgram ? "Update program" : "Save program"}
-                  </button>
-                  {editingProgram ? (
-                    <button type="button" className="btn secondary" onClick={handleCancelProgramEdit}>
-                      Cancel edit
-                    </button>
-                  ) : null}
-                </div>
-              </form>
-
-              <div className="admin-list">
-                {programs.map((program) => (
-                  <article className="admin-event-item" key={program.slug}>
-                    <div className="admin-event-copy">
-                      <strong>{program.title}</strong>
-                      <span>{program.slug}</span>
-                      <p>{program.body}</p>
-                    </div>
-                    <div className="admin-item-actions">
-                      <button type="button" className="btn secondary" onClick={() => setEditingProgram(program)}>
-                        Edit
-                      </button>
-                      <button type="button" className="btn danger" onClick={() => onDeleteProgram(program.slug)}>
-                        Delete
-                      </button>
-                    </div>
+                  <article className="admin-metric-card">
+                    <span className="admin-stat-label">Programs</span>
+                    <strong>{programs.length}</strong>
+                    <p>Gallery-driven program areas currently published on the website.</p>
                   </article>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {activeSection === "socials" ? (
-            <div className="admin-workspace">
-              <form className="admin-form admin-content-card admin-editor-card" onSubmit={handleSocialSubmit}>
-                <div className="admin-card-heading">
-                  <div>
-                    <p className="admin-card-label">{editingSocialLink ? "Editing mode" : "New content"}</p>
-                    <h3>{editingSocialLink ? "Edit social link" : "Add social link"}</h3>
-                  </div>
-                </div>
-
-                <div className="admin-form-grid">
-                  <label className="admin-span-2">
-                    Platform name
-                    <input
-                      value={socialFormState.name}
-                      onChange={(event) => updateSocialField("name", event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label className="admin-span-2">
-                    Link
-                    <input
-                      value={socialFormState.href}
-                      onChange={(event) => updateSocialField("href", event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label>
-                    Icon
-                    <select
-                      value={socialFormState.icon}
-                      onChange={(event) => updateSocialField("icon", event.target.value)}
-                    >
-                      {socialIconOptions.map((icon) => (
-                        <option key={icon} value={icon}>
-                          {icon}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Handle
-                    <input
-                      value={socialFormState.handle}
-                      onChange={(event) => updateSocialField("handle", event.target.value)}
-                    />
-                  </label>
-                  <label className="admin-span-2">
-                    Description
-                    <textarea
-                      rows="4"
-                      value={socialFormState.description}
-                      onChange={(event) => updateSocialField("description", event.target.value)}
-                    />
-                  </label>
-                </div>
-
-                <div className="admin-actions">
-                  <button type="submit" className="submit-btn">
-                    {editingSocialLink ? "Update link" : "Save social link"}
-                  </button>
-                  {editingSocialLink ? (
-                    <button type="button" className="btn secondary" onClick={handleCancelSocialEdit}>
-                      Cancel edit
-                    </button>
-                  ) : null}
-                </div>
-              </form>
-
-              <div className="admin-list">
-                {socialLinks.map((link) => (
-                  <article className="admin-event-item" key={link.id}>
-                    <div className="admin-event-copy">
-                      <strong>{link.name}</strong>
-                      <span>{link.handle}</span>
-                      <p>{link.description}</p>
-                    </div>
-                    <div className="admin-item-actions">
-                      <button type="button" className="btn secondary" onClick={() => setEditingSocialLink(link)}>
-                        Edit
-                      </button>
-                      <button type="button" className="btn danger" onClick={() => onDeleteSocialLink(link.id)}>
-                        Delete
-                      </button>
-                    </div>
+                  <article className="admin-metric-card">
+                    <span className="admin-stat-label">Users</span>
+                    <strong>{users.length}</strong>
+                    <p>User profiles shown publicly on the About page and editable here.</p>
                   </article>
+                  <article className="admin-metric-card">
+                    <span className="admin-stat-label">Social channels</span>
+                    <strong>{socialLinks.length}</strong>
+                    <p>Channels available across the home footer and the dedicated socials page.</p>
+                  </article>
+                </div>
+
+                <div className="admin-overview-grid">
+                  <TableCard
+                    title="Events"
+                    subtitle="Overview"
+                    columns={["Title", "Date", "Location", "Actions"]}
+                  >
+                    {renderTableRows(sortedEvents, (event) => (
+                      <tr key={event.id}>
+                        <td data-label="Title">{event.title}</td>
+                        <td data-label="Date">{formatEventDate(event.dateTime)}</td>
+                        <td data-label="Location">{event.location}</td>
+                        <td data-label="Actions">
+                          <div className="admin-table-actions">
+                            <button type="button" className="btn secondary" onClick={() => onEditEvent(event)}>
+                              Edit
+                            </button>
+                            <button type="button" className="btn danger" onClick={() => askDelete("event", event)}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </TableCard>
+
+                  <TableCard
+                    title="Programs"
+                    subtitle="Overview"
+                    columns={["Title", "Slug", "Body", "Actions"]}
+                  >
+                    {renderTableRows(programs, (program) => (
+                      <tr key={program.slug}>
+                        <td data-label="Title">{program.title}</td>
+                        <td data-label="Slug">{program.slug}</td>
+                        <td data-label="Body">{program.body}</td>
+                        <td data-label="Actions">
+                          <div className="admin-table-actions">
+                            <button type="button" className="btn secondary" onClick={() => setEditingProgram(program)}>
+                              Edit
+                            </button>
+                            <button type="button" className="btn danger" onClick={() => askDelete("program", program)}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </TableCard>
+
+                  <TableCard
+                    title="User management"
+                    subtitle="Overview"
+                    columns={["Name", "Portfolio", "Email", "Actions"]}
+                    tableClassName="admin-user-table"
+                  >
+                    {renderTableRows(userRows, (entry) => (
+                      <tr key={entry.id}>
+                        <td data-label="Name">
+                          <div className="admin-user-cell">
+                            <ManagedImage
+                              source={entry.data.imageUrl || "/assets/images/Bluenode.jpg"}
+                              alt={entry.data.name}
+                              className="admin-user-mini"
+                            />
+                            <span>{entry.data.name}</span>
+                          </div>
+                        </td>
+                        <td data-label="Portfolio">{entry.data.portfolio}</td>
+                        <td data-label="Email">{entry.data.email || "No email assigned"}</td>
+                        <td data-label="Actions">
+                          <div className="admin-table-actions">
+                            <button type="button" className="btn secondary" onClick={() => setEditingUser(entry)}>
+                              Edit
+                            </button>
+                            <button type="button" className="btn danger" onClick={() => askDelete("user", entry)}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </TableCard>
+
+                  <TableCard
+                    title="Social media"
+                    subtitle="Overview"
+                    columns={["Platform", "Handle", "Link", "Actions"]}
+                    tableClassName="admin-social-table"
+                  >
+                    {renderTableRows(socialLinks, (link) => (
+                      <tr key={link.id}>
+                        <td data-label="Platform">{link.name}</td>
+                        <td data-label="Handle">{link.handle}</td>
+                        <td data-label="Link">{link.href}</td>
+                        <td data-label="Actions">
+                          <div className="admin-table-actions">
+                            <button type="button" className="btn secondary" onClick={() => setEditingSocialLink(link)}>
+                              Edit
+                            </button>
+                            <button type="button" className="btn danger" onClick={() => askDelete("social", link)}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </TableCard>
+                </div>
+              </>
+            ) : null}
+
+            {activeSection === "events" ? (
+              <TableCard
+                title="Events"
+                subtitle="Manage"
+                createLabel="Create event"
+                onCreate={openEventCreate}
+                columns={["Title", "Date", "Location", "Actions"]}
+              >
+                {renderTableRows(sortedEvents, (event) => (
+                  <tr key={event.id}>
+                    <td data-label="Title">{event.title}</td>
+                    <td data-label="Date">{formatEventDate(event.dateTime)}</td>
+                    <td data-label="Location">{event.location}</td>
+                    <td data-label="Actions">
+                      <div className="admin-table-actions">
+                        <button type="button" className="btn secondary" onClick={() => onEditEvent(event)}>
+                          Edit
+                        </button>
+                        <button type="button" className="btn danger" onClick={() => askDelete("event", event)}>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            </div>
-          ) : null}
+              </TableCard>
+            ) : null}
+
+            {activeSection === "programs" ? (
+              <TableCard
+                title="Programs"
+                subtitle="Manage"
+                createLabel="Create program"
+                onCreate={openProgramCreate}
+                columns={["Title", "Slug", "Body", "Actions"]}
+              >
+                {renderTableRows(programs, (program) => (
+                  <tr key={program.slug}>
+                    <td data-label="Title">{program.title}</td>
+                    <td data-label="Slug">{program.slug}</td>
+                    <td data-label="Body">{program.body}</td>
+                    <td data-label="Actions">
+                      <div className="admin-table-actions">
+                        <button type="button" className="btn secondary" onClick={() => setEditingProgram(program)}>
+                          Edit
+                        </button>
+                        <button type="button" className="btn danger" onClick={() => askDelete("program", program)}>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </TableCard>
+            ) : null}
+
+            {activeSection === "users" ? (
+              <TableCard
+                title="User management"
+                subtitle="Manage"
+                createLabel="Create user"
+                onCreate={openUserCreate}
+                columns={["Name", "Portfolio", "Email", "Actions"]}
+                tableClassName="admin-user-table"
+              >
+                {renderTableRows(userRows, (entry) => (
+                  <tr key={entry.id}>
+                    <td data-label="Name">
+                      <div className="admin-user-cell">
+                        <ManagedImage
+                          source={entry.data.imageUrl || "/assets/images/Bluenode.jpg"}
+                          alt={entry.data.name}
+                          className="admin-user-mini"
+                        />
+                        <span>{entry.data.name}</span>
+                      </div>
+                    </td>
+                    <td data-label="Portfolio">{entry.data.portfolio}</td>
+                    <td data-label="Email">{entry.data.email || "No email assigned"}</td>
+                    <td data-label="Actions">
+                      <div className="admin-table-actions">
+                        <button type="button" className="btn secondary" onClick={() => setEditingUser(entry)}>
+                          Edit
+                        </button>
+                        <button type="button" className="btn danger" onClick={() => askDelete("user", entry)}>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </TableCard>
+            ) : null}
+
+            {activeSection === "socials" ? (
+              <TableCard
+                title="Social media"
+                subtitle="Manage"
+                createLabel="Create social link"
+                onCreate={openSocialCreate}
+                columns={["Platform", "Handle", "Link", "Actions"]}
+                tableClassName="admin-social-table"
+              >
+                {renderTableRows(socialLinks, (link) => (
+                  <tr key={link.id}>
+                    <td data-label="Platform">{link.name}</td>
+                    <td data-label="Handle">{link.handle}</td>
+                    <td data-label="Link">{link.href}</td>
+                    <td data-label="Actions">
+                      <div className="admin-table-actions">
+                        <button type="button" className="btn secondary" onClick={() => setEditingSocialLink(link)}>
+                          Edit
+                        </button>
+                        <button type="button" className="btn danger" onClick={() => askDelete("social", link)}>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </TableCard>
+            ) : null}
+          </div>
         </div>
       </section>
+
+      {eventModalOpen ? (
+        <ModalShell
+          title={editingEvent ? "Edit event" : "Create event"}
+          subtitle={editingEvent ? "Editing" : "New content"}
+          onClose={resetEventModal}
+          footer={
+            <>
+              <button type="button" className="btn secondary" onClick={resetEventModal}>
+                Cancel
+              </button>
+              <button type="button" className="submit-btn" onClick={saveEvent}>
+                Save event
+              </button>
+            </>
+          }
+        >
+          <div className="admin-form-grid admin-modal-form-grid">
+            <label className="admin-span-2">
+              Event title
+              <input
+                value={eventFormState.title}
+                onChange={(event) => setEventFormState((current) => ({ ...current, title: event.target.value }))}
+              />
+            </label>
+            <label>
+              Location
+              <input
+                value={eventFormState.location}
+                onChange={(event) => setEventFormState((current) => ({ ...current, location: event.target.value }))}
+              />
+            </label>
+            <label>
+              Event date and time
+              <input
+                type="datetime-local"
+                value={eventFormState.dateTime}
+                onChange={(event) => setEventFormState((current) => ({ ...current, dateTime: event.target.value }))}
+              />
+            </label>
+            <label className="admin-span-2">
+              Flyer image URL, Drive link, or ID
+              <input
+                value={eventFormState.flyerImage}
+                onChange={(event) => setEventFormState((current) => ({ ...current, flyerImage: event.target.value }))}
+              />
+            </label>
+            <label className="admin-span-2">
+              Description
+              <textarea
+                rows="5"
+                value={eventFormState.description}
+                onChange={(event) => setEventFormState((current) => ({ ...current, description: event.target.value }))}
+              />
+            </label>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {programModalOpen ? (
+        <ModalShell
+          title={editingProgram ? "Edit program" : "Create program"}
+          subtitle={editingProgram ? "Editing" : "New content"}
+          onClose={resetProgramModal}
+          footer={
+            <>
+              <button type="button" className="btn secondary" onClick={resetProgramModal}>
+                Cancel
+              </button>
+              <button type="button" className="submit-btn" onClick={saveProgram}>
+                Save program
+              </button>
+            </>
+          }
+        >
+          <div className="admin-form-grid admin-modal-form-grid">
+            <label className="admin-span-2">
+              Program title
+              <input
+                value={programFormState.title}
+                onChange={(event) => setProgramFormState((current) => ({ ...current, title: event.target.value }))}
+              />
+            </label>
+            <label className="admin-span-2">
+              Slug
+              <input
+                value={programFormState.slug}
+                onChange={(event) => setProgramFormState((current) => ({ ...current, slug: event.target.value }))}
+              />
+            </label>
+            <label className="admin-span-2">
+              Cover image URL, Drive link, or ID
+              <input
+                value={programFormState.imageId}
+                onChange={(event) => setProgramFormState((current) => ({ ...current, imageId: event.target.value }))}
+              />
+            </label>
+            <label className="admin-span-2">
+              Gallery image IDs
+              <textarea
+                rows="8"
+                value={programFormState.galleryImageIds}
+                onChange={(event) =>
+                  setProgramFormState((current) => ({ ...current, galleryImageIds: event.target.value }))
+                }
+              />
+            </label>
+            <label className="admin-span-2">
+              Program body
+              <textarea
+                rows="5"
+                value={programFormState.body}
+                onChange={(event) => setProgramFormState((current) => ({ ...current, body: event.target.value }))}
+              />
+            </label>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {userModalOpen ? (
+        <ModalShell
+          title={editingUser ? "Edit user" : "Create user"}
+          subtitle={editingUser ? "Editing" : "New content"}
+          onClose={resetUserModal}
+          footer={
+            <>
+              <button type="button" className="btn secondary" onClick={resetUserModal}>
+                Cancel
+              </button>
+              <button type="button" className="submit-btn" onClick={saveUser}>
+                Save user
+              </button>
+            </>
+          }
+        >
+          <div className="admin-form-grid admin-modal-form-grid">
+            <label className="admin-span-2">
+              Full name
+              <input
+                value={userFormState.name}
+                onChange={(event) => setUserFormState((current) => ({ ...current, name: event.target.value }))}
+              />
+            </label>
+            <label className="admin-span-2">
+              Portfolio
+              <select
+                value={userFormState.portfolio}
+                onChange={(event) => setUserFormState((current) => ({ ...current, portfolio: event.target.value }))}
+              >
+                {portfolioOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="admin-span-2">
+              Image URL, Drive link, or ID
+              <input
+                value={userFormState.imageUrl}
+                onChange={(event) => setUserFormState((current) => ({ ...current, imageUrl: event.target.value }))}
+              />
+            </label>
+            <label>
+              Phone number
+              <input
+                value={userFormState.phoneNumber}
+                onChange={(event) => setUserFormState((current) => ({ ...current, phoneNumber: event.target.value }))}
+              />
+            </label>
+            <label>
+              Email
+              <input
+                type="email"
+                value={userFormState.email}
+                onChange={(event) => setUserFormState((current) => ({ ...current, email: event.target.value }))}
+              />
+            </label>
+            <label className="admin-span-2">
+              Career
+              <select
+                value={userFormState.career}
+                onChange={(event) =>
+                  setUserFormState((current) => ({
+                    ...current,
+                    career: event.target.value,
+                    careerOther: event.target.value === "Other" ? current.careerOther : ""
+                  }))
+                }
+              >
+                {careerOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {userFormState.career === "Other" ? (
+              <label className="admin-span-2">
+                Other career
+                <input
+                  value={userFormState.careerOther}
+                  onChange={(event) =>
+                    setUserFormState((current) => ({ ...current, careerOther: event.target.value }))
+                  }
+                />
+              </label>
+            ) : null}
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {socialModalOpen ? (
+        <ModalShell
+          title={editingSocialLink ? "Edit social link" : "Create social link"}
+          subtitle={editingSocialLink ? "Editing" : "New content"}
+          onClose={resetSocialModal}
+          footer={
+            <>
+              <button type="button" className="btn secondary" onClick={resetSocialModal}>
+                Cancel
+              </button>
+              <button type="button" className="submit-btn" onClick={saveSocialLink}>
+                Save social link
+              </button>
+            </>
+          }
+        >
+          <div className="admin-form-grid admin-modal-form-grid">
+            <label className="admin-span-2">
+              Platform name
+              <input
+                value={socialFormState.name}
+                onChange={(event) => setSocialFormState((current) => ({ ...current, name: event.target.value }))}
+              />
+            </label>
+            <label className="admin-span-2">
+              Link
+              <input
+                value={socialFormState.href}
+                onChange={(event) => setSocialFormState((current) => ({ ...current, href: event.target.value }))}
+              />
+            </label>
+            <label>
+              Icon
+              <select
+                value={socialFormState.icon}
+                onChange={(event) => setSocialFormState((current) => ({ ...current, icon: event.target.value }))}
+              >
+                {socialIconOptions.map((icon) => (
+                  <option key={icon} value={icon}>
+                    {icon}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Handle
+              <input
+                value={socialFormState.handle}
+                onChange={(event) => setSocialFormState((current) => ({ ...current, handle: event.target.value }))}
+              />
+            </label>
+            <label className="admin-span-2">
+              Description
+              <textarea
+                rows="4"
+                value={socialFormState.description}
+                onChange={(event) =>
+                  setSocialFormState((current) => ({ ...current, description: event.target.value }))
+                }
+              />
+            </label>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {deleteTarget ? (
+        <div className="admin-modal-overlay" role="presentation" onClick={() => setDeleteTarget(null)}>
+          <div className="admin-modal admin-confirm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="admin-modal-header">
+              <div>
+                <p className="admin-card-label">Confirm delete</p>
+                <h3>Delete {deleteTarget.label}</h3>
+              </div>
+              <button type="button" className="admin-modal-close" onClick={() => setDeleteTarget(null)} aria-label="Close modal">
+                ×
+              </button>
+            </div>
+            <p className="admin-modal-copy">
+              This action cannot be undone. Are you sure you want to permanently delete this item?
+            </p>
+            <div className="admin-modal-footer">
+              <button type="button" className="btn secondary" onClick={() => setDeleteTarget(null)}>
+                No, keep it
+              </button>
+              <button type="button" className="btn danger" onClick={confirmDelete}>
+                Yes, delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

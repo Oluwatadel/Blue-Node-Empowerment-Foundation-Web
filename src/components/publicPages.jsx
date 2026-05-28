@@ -1,7 +1,47 @@
 import { useEffect, useState } from "react";
-import { aboutCards, HOME_HERO_IMAGE_ID, quickLinks, teamMembers } from "../content/siteContent.js";
-import { getDriveThumbnailUrl, formatEventDate, getCountdownParts, isExternalLink } from "../lib/siteUtils.js";
+import { aboutCards, HOME_HERO_IMAGE_ID, portfolioOptions, quickLinks } from "../content/siteContent.js";
+import { getDriveThumbnailUrl, formatEventDate, getCountdownParts, isExternalLink, normalizePortfolioValue } from "../lib/siteUtils.js";
 import { AutoPlayCarousel, Countdown, DriveImage, ManagedImage, PageShell, SocialIcon } from "./shared.jsx";
+
+const MEMBER_PORTFOLIO = "members";
+const EXECUTIVE_PORTFOLIOS = new Set(portfolioOptions.filter((portfolio) => portfolio !== MEMBER_PORTFOLIO));
+
+function splitTeamMembers(users = []) {
+  const normalized = users.map((entry) => ({
+    id: entry.id,
+    user: (() => {
+      const user = entry.user ?? entry;
+      return {
+        ...user,
+        portfolio: normalizePortfolioValue(user.portfolio)
+      };
+    })()
+  }));
+
+  const excos = normalized.filter((entry) => EXECUTIVE_PORTFOLIOS.has(entry.user.portfolio));
+  const members = normalized.filter((entry) => entry.user.portfolio === MEMBER_PORTFOLIO);
+
+  return { excos, members, allMembers: normalized };
+}
+
+function TeamCard({ entry }) {
+  const user = entry.user ?? entry;
+
+  return (
+    <article className="team-card" key={entry.id || user.name}>
+      <ManagedImage source={user.imageUrl || "/assets/images/Bluenode.jpg"} alt={user.name} className="team-photo" />
+      <div className="team-card-copy">
+        <strong>{user.name}</strong>
+        <span>{user.portfolio}</span>
+        <p>{user.career}</p>
+        <div className="team-contact-stack">
+          {user.phoneNumber ? <a href={`tel:${user.phoneNumber}`}>{user.phoneNumber}</a> : null}
+          {user.email ? <a href={`mailto:${user.email}`}>{user.email}</a> : null}
+        </div>
+      </div>
+    </article>
+  );
+}
 
 function QuickLinksSection() {
   return (
@@ -35,9 +75,9 @@ function UpcomingEventsSection({ events }) {
       <section className="section-shell event-spotlight">
         <div className="event-hero">
           <p className="event-pill">Upcoming events</p>
-          <h2>New outreach dates will appear here as soon as they are published.</h2>
+          <h2>Watch out for upcoming events.</h2>
           <p className="event-summary">
-            The Blue Node team can publish upcoming activities from the admin dashboard.
+            There are no published events right now, but fresh outreach dates will appear here as soon as they are added.
           </p>
         </div>
       </section>
@@ -80,7 +120,10 @@ function UpcomingEventsSection({ events }) {
             </h3>
             <p className="event-location">{event.location}</p>
             <p className="event-description">{event.description}</p>
-            <Countdown dateTime={event.dateTime} />
+            <div className="events-countdown-panel">
+              <p className="events-countdown-label">Countdown to this event</p>
+              <Countdown dateTime={event.dateTime} />
+            </div>
             <a className="event-detail-link" href={`#event/${event.id}`}>
               View event details
             </a>
@@ -91,7 +134,39 @@ function UpcomingEventsSection({ events }) {
   );
 }
 
-export function HomePage({ events, programs, isMobile }) {
+function HomeTeamSection({ users, onOpenTeamPage }) {
+  if (!Array.isArray(users) || users.length === 0) {
+    return null;
+  }
+
+  const featuredUsers = users.slice(0, 3);
+
+  return (
+    <section className="section-shell home-team-preview">
+      <div className="section-heading">
+        <p className="section-kicker">Our team</p>
+        <h2>Meet the people leading the work behind Blue Node.</h2>
+        <p className="page-intro">
+          The homepage only shows this section when team data exists in the database.
+        </p>
+      </div>
+
+      <div className="home-team-grid team-grid">
+        {featuredUsers.map((entry) => (
+          <TeamCard key={entry.id || entry.user?.name || entry.name} entry={entry} />
+        ))}
+      </div>
+
+      <div className="team-section-footer">
+        <button type="button" className="btn primary" onClick={onOpenTeamPage} aria-label="Open the full team page">
+          View full team
+        </button>
+      </div>
+    </section>
+  );
+}
+
+export function HomePage({ events, programs, users, isMobile, onOpenTeamPage }) {
   const heroBackground = getDriveThumbnailUrl(HOME_HERO_IMAGE_ID);
 
   return (
@@ -141,13 +216,16 @@ export function HomePage({ events, programs, isMobile }) {
           />
         </section>
 
+        <HomeTeamSection users={users} onOpenTeamPage={onOpenTeamPage} />
         <QuickLinksSection />
       </main>
     </>
   );
 }
 
-export function AboutPage() {
+export function AboutPage({ users = [] }) {
+  const { excos } = splitTeamMembers(users);
+
   return (
     <PageShell
       kicker="About us"
@@ -174,14 +252,45 @@ export function AboutPage() {
         </div>
 
         <div className="team-grid">
-          {teamMembers.map((member) => (
-            <article className="team-card" key={member.name}>
-              <DriveImage fileId={member.imageId} alt={member.name} className="team-photo" />
-              <div className="team-card-copy">
-                <strong>{member.name}</strong>
-                <span>{member.post}</span>
-              </div>
-            </article>
+          {excos.map((entry) => (
+            <TeamCard key={entry.id || entry.user.name} entry={entry} />
+          ))}
+        </div>
+
+      </section>
+    </PageShell>
+  );
+}
+
+export function TeamPage({ users = [] }) {
+  const { excos, members } = splitTeamMembers(users);
+
+  return (
+    <PageShell
+      kicker="Team"
+      title="Meet the people behind Blue Node Foundation."
+      body="This page brings together the executive team, support crew, and wider members in one place."
+    >
+      <section className="section-shell team-section">
+        <div className="section-heading">
+          <p className="section-kicker">Excos</p>
+          <h2>Executive team.</h2>
+        </div>
+        <div className="team-grid">
+          {excos.map((entry) => (
+            <TeamCard key={entry.id || entry.user.name} entry={entry} />
+          ))}
+        </div>
+      </section>
+
+      <section className="section-shell team-section">
+        <div className="section-heading">
+          <p className="section-kicker">Members</p>
+          <h2>Team members and support crew.</h2>
+        </div>
+        <div className="team-grid">
+          {members.map((entry) => (
+            <TeamCard key={entry.id || entry.user.name} entry={entry} />
           ))}
         </div>
       </section>
@@ -440,6 +549,10 @@ export function EventsPage({ events }) {
                       <div className="events-showcase-meta">
                         <span>{formatEventDate(event.dateTime)}</span>
                         <span>{event.location}</span>
+                      </div>
+                      <div className="events-countdown-panel">
+                        <p className="events-countdown-label">Countdown to this event</p>
+                        <Countdown dateTime={event.dateTime} />
                       </div>
                       <div className="events-slider-controls">
                         <button type="button" className="events-slider-button" onClick={showPreviousEvent}>
