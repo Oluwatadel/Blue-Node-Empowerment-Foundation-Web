@@ -113,6 +113,9 @@ export default function App() {
       try {
         const content = await fetchSiteContent();
         console.log("[BlueNode] /api/content payload", content);
+        console.log("[BlueNode] /api/content events", Array.isArray(content.events) ? content.events : []);
+        console.log("[BlueNode] /api/content programs", Array.isArray(content.programs) ? content.programs : []);
+        console.log("[BlueNode] /api/content socialLinks", Array.isArray(content.socialLinks) ? content.socialLinks : []);
         console.log("[BlueNode] /api/content users", Array.isArray(content.users) ? content.users : []);
 
         if (!active) {

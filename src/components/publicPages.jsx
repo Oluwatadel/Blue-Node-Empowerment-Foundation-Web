@@ -29,15 +29,9 @@ function TeamCard({ entry }) {
 
   return (
     <article className="team-card" key={entry.id || user.name}>
-      <ManagedImage source={user.imageUrl || "/assets/images/Bluenode.jpg"} alt={user.name} className="team-photo" />
       <div className="team-card-copy">
         <strong>{user.name}</strong>
         <span>{user.portfolio}</span>
-        <p>{user.career}</p>
-        <div className="team-contact-stack">
-          {user.phoneNumber ? <a href={`tel:${user.phoneNumber}`}>{user.phoneNumber}</a> : null}
-          {user.email ? <a href={`mailto:${user.email}`}>{user.email}</a> : null}
-        </div>
       </div>
     </article>
   );
@@ -146,9 +140,6 @@ function HomeTeamSection({ users, onOpenTeamPage }) {
       <div className="section-heading">
         <p className="section-kicker">Our team</p>
         <h2>Meet the people leading the work behind Blue Node.</h2>
-        <p className="page-intro">
-          The homepage only shows this section when team data exists in the database.
-        </p>
       </div>
 
       <div className="home-team-grid team-grid">

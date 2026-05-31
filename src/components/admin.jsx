@@ -395,9 +395,31 @@ export function AdminDashboard({
     setEventModalOpen(true);
   }
 
+  function openEventEdit(event) {
+    setEditingEvent(event);
+    setEventFormState({
+      ...emptyEventForm,
+      ...event
+    });
+    setEventModalOpen(true);
+  }
+
   function openProgramCreate() {
     setEditingProgram(null);
     setProgramFormState(emptyProgramForm);
+    setProgramModalOpen(true);
+  }
+
+  function openProgramEdit(program) {
+    setEditingProgram(program);
+    setProgramFormState({
+      id: program.id || program.slug || "",
+      slug: program.slug || "",
+      title: program.title || "",
+      body: program.body || "",
+      imageId: program.imageId || "",
+      galleryImageIds: getEditableGalleryImageIds(program.galleryImageIds)
+    });
     setProgramModalOpen(true);
   }
 
@@ -407,9 +429,40 @@ export function AdminDashboard({
     setUserModalOpen(true);
   }
 
+  function openUserEdit(entry) {
+    const user = entry.user ?? entry;
+    setEditingUser(entry);
+    setUserFormState({
+      id: entry.id || "",
+      name: user.name || "",
+      portfolio: portfolioOptions.includes(normalizePortfolioValue(user.portfolio))
+        ? normalizePortfolioValue(user.portfolio)
+        : portfolioOptions[0],
+      imageUrl: user.imageUrl || "",
+      phoneNumber: user.phoneNumber || "",
+      email: user.email || "",
+      career: careerOptions.includes(user.career) ? user.career : "Other",
+      careerOther: careerOptions.includes(user.career) ? "" : user.career || ""
+    });
+    setUserModalOpen(true);
+  }
+
   function openSocialCreate() {
     setEditingSocialLink(null);
     setSocialFormState(emptySocialForm);
+    setSocialModalOpen(true);
+  }
+
+  function openSocialEdit(link) {
+    setEditingSocialLink(link);
+    setSocialFormState({
+      id: link.id || "",
+      name: link.name || "",
+      href: link.href || "",
+      icon: link.icon || socialIconOptions[0],
+      handle: link.handle || "",
+      description: link.description || ""
+    });
     setSocialModalOpen(true);
   }
 
@@ -528,41 +581,35 @@ export function AdminDashboard({
       return;
     }
 
-    let saved = true;
-
-    if (deleteTarget.kind === "event") {
-      saved = (await onDeleteEvent(deleteTarget.id)) !== false;
-    }
-
-    if (deleteTarget.kind === "program") {
-      saved = (await onDeleteProgram(deleteTarget.id)) !== false;
-    }
-
-    if (deleteTarget.kind === "user") {
-      saved = (await onDeleteUser(deleteTarget.id)) !== false;
-    }
-
-    if (deleteTarget.kind === "social") {
-      saved = (await onDeleteSocialLink(deleteTarget.id)) !== false;
-    }
-
-    if (saved) {
-      if (deleteTarget.kind === "event" && editingEvent?.id === deleteTarget.id) {
-        setEditingEvent(null);
+    try {
+      if (deleteTarget.kind === "event") {
+        await onDeleteEvent(deleteTarget.id);
+        if (editingEvent?.id === deleteTarget.id) {
+          resetEventModal();
+        }
       }
 
-      if (deleteTarget.kind === "program" && editingProgram && (editingProgram.slug === deleteTarget.id || editingProgram.id === deleteTarget.id)) {
-        setEditingProgram(null);
+      if (deleteTarget.kind === "program") {
+        await onDeleteProgram(deleteTarget.id);
+        if (editingProgram && (editingProgram.slug === deleteTarget.id || editingProgram.id === deleteTarget.id)) {
+          resetProgramModal();
+        }
       }
 
-      if (deleteTarget.kind === "user" && (editingUser?.id || editingUser?.user?.name || editingUser?.name) === deleteTarget.id) {
-        setEditingUser(null);
+      if (deleteTarget.kind === "user") {
+        await onDeleteUser(deleteTarget.id);
+        if ((editingUser?.id || editingUser?.user?.name || editingUser?.name) === deleteTarget.id) {
+          resetUserModal();
+        }
       }
 
-      if (deleteTarget.kind === "social" && editingSocialLink?.id === deleteTarget.id) {
-        setEditingSocialLink(null);
+      if (deleteTarget.kind === "social") {
+        await onDeleteSocialLink(deleteTarget.id);
+        if (editingSocialLink?.id === deleteTarget.id) {
+          resetSocialModal();
+        }
       }
-
+    } finally {
       setDeleteTarget(null);
     }
   }
@@ -923,7 +970,7 @@ export function AdminDashboard({
                     <td data-label="Location">{event.location}</td>
                     <td data-label="Actions">
                       <div className="admin-table-actions">
-                        <button type="button" className="btn secondary" onClick={() => onEditEvent(event)}>
+                        <button type="button" className="btn secondary" onClick={() => openEventEdit(event)}>
                           Edit
                         </button>
                         <button type="button" className="btn danger" onClick={() => askDelete("event", event)}>
@@ -951,7 +998,7 @@ export function AdminDashboard({
                     <td data-label="Body">{program.body}</td>
                     <td data-label="Actions">
                       <div className="admin-table-actions">
-                        <button type="button" className="btn secondary" onClick={() => setEditingProgram(program)}>
+                        <button type="button" className="btn secondary" onClick={() => openProgramEdit(program)}>
                           Edit
                         </button>
                         <button type="button" className="btn danger" onClick={() => askDelete("program", program)}>
@@ -1016,7 +1063,7 @@ export function AdminDashboard({
                     <td data-label="Email">{entry.data.email || "No email assigned"}</td>
                     <td data-label="Actions">
                       <div className="admin-table-actions">
-                        <button type="button" className="btn secondary" onClick={() => setEditingUser(entry)}>
+                        <button type="button" className="btn secondary" onClick={() => openUserEdit(entry)}>
                           Edit
                         </button>
                         <button type="button" className="btn danger" onClick={() => askDelete("user", entry)}>
@@ -1045,7 +1092,7 @@ export function AdminDashboard({
                     <td data-label="Link">{link.href}</td>
                     <td data-label="Actions">
                       <div className="admin-table-actions">
-                        <button type="button" className="btn secondary" onClick={() => setEditingSocialLink(link)}>
+                        <button type="button" className="btn secondary" onClick={() => openSocialEdit(link)}>
                           Edit
                         </button>
                         <button type="button" className="btn danger" onClick={() => askDelete("social", link)}>
