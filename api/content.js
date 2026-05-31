@@ -25,7 +25,7 @@ async function readJsonBody(req) {
 
 function normalizeGalleryIds(value) {
   if (Array.isArray(value)) {
-    return value;
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
   }
 
   if (typeof value === "string") {
@@ -120,7 +120,7 @@ async function replaceContent(pool, content) {
           program.title,
           program.body,
           program.imageId || "",
-          JSON.stringify(program.galleryImageIds || [])
+          JSON.stringify(normalizeGalleryIds(program.galleryImageIds))
         ]
       );
     }
