@@ -1214,8 +1214,14 @@ export function AdminDashboard({
                   <strong>Program gallery images</strong>
                   <p className="admin-field-hint">Add one image ID or Drive link per row. Programs can have multiple gallery images, and we will save them in the order shown here.</p>
                 </div>
-                <button type="button" className="btn secondary" onClick={addProgramGalleryImage}>
-                  Add more image
+                <button
+                  type="button"
+                  className="admin-gallery-add-button"
+                  onClick={addProgramGalleryImage}
+                  title="Add another image"
+                  aria-label="Add another image"
+                >
+                  <span aria-hidden="true">+</span>
                 </button>
               </div>
 
@@ -1289,8 +1295,14 @@ export function AdminDashboard({
                 <p className="admin-field-hint">
                   Paste one or many Google Drive IDs, links, or image URLs. Click Add to gallery to append them to this program.
                 </p>
-                <button type="button" className="btn secondary" onClick={appendGalleryDraft}>
-                  Add more image
+                <button
+                  type="button"
+                  className="admin-gallery-add-button"
+                  onClick={appendGalleryDraft}
+                  title="Add another image"
+                  aria-label="Add another image"
+                >
+                  <span aria-hidden="true">+</span>
                 </button>
               </div>
 
@@ -1324,8 +1336,14 @@ export function AdminDashboard({
                 )}
               </div>
 
-              <button type="button" className="btn secondary" onClick={addGalleryImageRow}>
-                Add more image
+              <button
+                type="button"
+                className="admin-gallery-add-button"
+                onClick={addGalleryImageRow}
+                title="Add another image"
+                aria-label="Add another image"
+              >
+                <span aria-hidden="true">+</span>
               </button>
             </div>
           </div>
