@@ -1215,7 +1215,7 @@ export function AdminDashboard({
                   <p className="admin-field-hint">Add one image ID or Drive link per row. Programs can have multiple gallery images, and we will save them in the order shown here.</p>
                 </div>
                 <button type="button" className="btn secondary" onClick={addProgramGalleryImage}>
-                  Add image
+                  Add more image
                 </button>
               </div>
 
@@ -1290,7 +1290,7 @@ export function AdminDashboard({
                   Paste one or many Google Drive IDs, links, or image URLs. Click Add to gallery to append them to this program.
                 </p>
                 <button type="button" className="btn secondary" onClick={appendGalleryDraft}>
-                  Add to gallery
+                  Add more image
                 </button>
               </div>
 
@@ -1325,7 +1325,7 @@ export function AdminDashboard({
               </div>
 
               <button type="button" className="btn secondary" onClick={addGalleryImageRow}>
-                Add image row
+                Add more image
               </button>
             </div>
           </div>
