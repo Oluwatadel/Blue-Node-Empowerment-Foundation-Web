@@ -205,7 +205,7 @@ export function AdminDashboard({
     title: "",
     body: "",
     imageId: "",
-    galleryImageIds: [""]
+    galleryImageIds: ["", ""]
   };
   const emptyUserForm = {
     id: "",
@@ -406,7 +406,10 @@ export function AdminDashboard({
 
   function openProgramCreate() {
     setEditingProgram(null);
-    setProgramFormState(emptyProgramForm);
+    setProgramFormState({
+      ...emptyProgramForm,
+      galleryImageIds: ["", ""]
+    });
     setProgramModalOpen(true);
   }
 
@@ -1209,7 +1212,7 @@ export function AdminDashboard({
                 <div>
                   <p className="admin-card-label">Gallery content</p>
                   <strong>Program gallery images</strong>
-                  <p className="admin-field-hint">Add one image ID or Drive link per row. We will save them in the order shown here.</p>
+                  <p className="admin-field-hint">Add one image ID or Drive link per row. Programs can have multiple gallery images, and we will save them in the order shown here.</p>
                 </div>
                 <button type="button" className="btn secondary" onClick={addProgramGalleryImage}>
                   Add image
