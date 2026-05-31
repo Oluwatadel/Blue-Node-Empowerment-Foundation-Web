@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Pool } from "@neondatabase/serverless";
-import { defaultPrograms } from "../src/content/siteContent.js";
+import { defaultPrograms, defaultSocialLinks } from "../src/content/siteContent.js";
 
 function parseEnvFile(raw) {
   const env = {};
@@ -90,6 +90,17 @@ async function main() {
         );
       }
 
+      for (const link of defaultSocialLinks) {
+        await client.query(
+          `
+            INSERT INTO social_links (id, name, href, icon, handle, description)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (id) DO NOTHING
+          `,
+          [link.id, link.name, link.href, link.icon, link.handle || "", link.description || ""]
+        );
+      }
+
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -97,7 +108,7 @@ async function main() {
     }
 
     console.log(
-      `Migration complete: ${statements.length} statement(s) applied from migrations/001_init.sql and ${defaultPrograms.length} program record(s) seeded`
+      `Migration complete: ${statements.length} statement(s) applied from migrations/001_init.sql, ${defaultPrograms.length} program record(s) seeded, and ${defaultSocialLinks.length} social link record(s) seeded`
     );
   } finally {
     client.release();
