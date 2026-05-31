@@ -4,6 +4,44 @@ import {
 } from "../src/content/siteContent.js";
 import { getPool } from "./_db.js";
 
+const STEP_TIMEOUT_MS = 8000;
+
+function createRequestLogger(requestId) {
+  return {
+    info(step, details = "") {
+      console.info(`[api/content:${requestId}] ${step}${details ? ` ${details}` : ""}`);
+    },
+    warn(step, details = "") {
+      console.warn(`[api/content:${requestId}] ${step}${details ? ` ${details}` : ""}`);
+    },
+    error(step, error) {
+      console.error(
+        `[api/content:${requestId}] ${step}`,
+        error instanceof Error ? error.stack || error.message : error
+      );
+    }
+  };
+}
+
+async function withStepTimeout(label, task, logger) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${STEP_TIMEOUT_MS}ms`));
+    }, STEP_TIMEOUT_MS);
+  });
+
+  logger.info(label, "start");
+
+  try {
+    const result = await Promise.race([task(), timeoutPromise]);
+    logger.info(label, "done");
+    return result;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function toJsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -31,6 +69,7 @@ function normalizeGalleryIds(value) {
 }
 
 async function ensureSchema(pool) {
+  console.info("[api/content] ensuring schema");
   await pool.query(`
     CREATE TABLE IF NOT EXISTS events (
       id TEXT PRIMARY KEY,
@@ -78,6 +117,7 @@ async function ensureSchema(pool) {
 }
 
 async function loadContent(pool) {
+  console.info("[api/content] loading content from database");
   const [eventsResult, programsResult, socialLinksResult, usersResult] = await Promise.all([
     pool.query("SELECT id, title, location, date_time, description, flyer_image FROM events ORDER BY date_time ASC"),
     pool.query("SELECT slug, id, title, body, image_id, gallery_image_ids FROM programs ORDER BY title ASC"),
@@ -125,6 +165,7 @@ async function loadContent(pool) {
 }
 
 async function migrateLegacyVolunteers(pool) {
+  console.info("[api/content] checking legacy volunteers table");
   const usersCountResult = await pool.query("SELECT COUNT(*)::int AS count FROM users");
   if (usersCountResult.rows[0]?.count > 0) {
     return;
@@ -152,6 +193,7 @@ async function migrateLegacyVolunteers(pool) {
 }
 
 async function seedDefaults(pool) {
+  console.info("[api/content] seeding defaults if needed");
   const client = await pool.connect();
 
   try {
@@ -202,6 +244,7 @@ async function seedDefaults(pool) {
 }
 
 async function ensureDefaults(pool) {
+  console.info("[api/content] verifying default content");
   const [programsResult, socialLinksResult] = await Promise.all([
     pool.query("SELECT COUNT(*)::int AS count FROM programs"),
     pool.query("SELECT COUNT(*)::int AS count FROM social_links")
@@ -262,6 +305,7 @@ async function ensureDefaults(pool) {
 }
 
 async function replaceContent(pool, content) {
+  console.info("[api/content] replacing content payload");
   const events = Array.isArray(content?.events) ? content.events : [];
   const programs = Array.isArray(content?.programs) ? content.programs : [];
   const socialLinks = Array.isArray(content?.socialLinks) ? content.socialLinks : [];
@@ -340,25 +384,36 @@ async function replaceContent(pool, content) {
 }
 
 export default async function handler(request) {
+  const requestId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const logger = createRequestLogger(requestId);
+  const method = request.method || "GET";
+  logger.info("request received", method);
+
   try {
     const pool = getPool();
-    await ensureSchema(pool);
+    logger.info("database pool ready");
+    await withStepTimeout("ensureSchema", () => ensureSchema(pool), logger);
 
-    if (request.method === "GET") {
-      await migrateLegacyVolunteers(pool);
-      await ensureDefaults(pool);
-      const content = await loadContent(pool);
+    if (method === "GET") {
+      await withStepTimeout("migrateLegacyVolunteers", () => migrateLegacyVolunteers(pool), logger);
+      await withStepTimeout("ensureDefaults", () => ensureDefaults(pool), logger);
+      const content = await withStepTimeout("loadContent", () => loadContent(pool), logger);
+      logger.info("request complete", "200");
       return toJsonResponse(content);
     }
 
-    if (request.method === "PUT") {
+    if (method === "PUT") {
+      logger.info("parsing request body");
       const body = await request.json();
-      const content = await replaceContent(pool, body);
+      const content = await withStepTimeout("replaceContent", () => replaceContent(pool, body), logger);
+      logger.info("request complete", "200");
       return toJsonResponse(content);
     }
 
+    logger.warn("unsupported method", method);
     return toJsonResponse({ error: "Method not allowed" }, 405);
   } catch (error) {
+    logger.error("request failed", error);
     return toJsonResponse(
       {
         error: error instanceof Error ? error.message : "Unexpected server error"

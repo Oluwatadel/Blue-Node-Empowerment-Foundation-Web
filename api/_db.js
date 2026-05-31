@@ -8,8 +8,12 @@ export function getPool() {
   }
 
   if (!pool) {
+    console.info("[api/content] creating Neon pool");
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL
+      connectionString: process.env.DATABASE_URL,
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 10000,
+      max: 1
     });
   }
 
