@@ -23,6 +23,53 @@ function createRequestLogger(requestId) {
   };
 }
 
+function querySummary(sql, params = []) {
+  const compactSql = String(sql).replace(/\s+/g, " ").trim();
+  const preview = compactSql.length > 140 ? `${compactSql.slice(0, 140)}...` : compactSql;
+  return `${preview} | params=${JSON.stringify(params)}`;
+}
+
+function instrumentDbExecutor(executor, logger, scope = "db") {
+  return new Proxy(executor, {
+    get(target, prop, receiver) {
+      if (prop === "query") {
+        return async (sql, params = []) => {
+          const startedAt = Date.now();
+          logger.info(`${scope} read/write start`, querySummary(sql, params));
+
+          try {
+            const result = await target.query(sql, params);
+            logger.info(`${scope} read/write done`, `${Date.now() - startedAt}ms rows=${result?.rowCount ?? 0}`);
+            return result;
+          } catch (error) {
+            logger.error(`${scope} read/write failed`, error);
+            throw error;
+          }
+        };
+      }
+
+      if (prop === "connect") {
+        return async () => {
+          logger.info(`${scope} connect start`);
+          const startedAt = Date.now();
+
+          try {
+            const client = await target.connect();
+            logger.info(`${scope} connect done`, `${Date.now() - startedAt}ms`);
+            return instrumentDbExecutor(client, logger, `${scope}.client`);
+          } catch (error) {
+            logger.error(`${scope} connect failed`, error);
+            throw error;
+          }
+        };
+      }
+
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    }
+  });
+}
+
 async function withStepTimeout(label, task, logger) {
   let timeoutId;
   const timeoutPromise = new Promise((_, reject) => {
@@ -390,7 +437,7 @@ export default async function handler(request) {
   logger.info("request received", method);
 
   try {
-    const pool = getPool();
+    const pool = instrumentDbExecutor(getPool(), logger, "db");
     logger.info("database pool ready");
     await withStepTimeout("ensureSchema", () => ensureSchema(pool), logger);
 
