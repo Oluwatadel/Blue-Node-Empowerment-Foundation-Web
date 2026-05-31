@@ -29,6 +29,7 @@ function TeamCard({ entry }) {
 
   return (
     <article className="team-card" key={entry.id || user.name}>
+      <ManagedImage source={user.imageUrl || "/assets/images/Bluenode.jpg"} alt={user.name} className="team-photo" />
       <div className="team-card-copy">
         <strong>{user.name}</strong>
         <span>{user.portfolio}</span>
