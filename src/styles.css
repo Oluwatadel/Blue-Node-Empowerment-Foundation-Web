@@ -2325,6 +2325,37 @@ main,
   width: fit-content;
 }
 
+.admin-gallery-add-button {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(29, 99, 216, 0.18);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(29, 99, 216, 0.1), rgba(29, 99, 216, 0.18));
+  color: var(--primary-deep);
+  font: inherit;
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 47, 121, 0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.admin-gallery-add-button:hover,
+.admin-gallery-add-button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(15, 47, 121, 0.16);
+  background: linear-gradient(135deg, rgba(29, 99, 216, 0.16), rgba(29, 99, 216, 0.24));
+  outline: 0;
+}
+
+.admin-gallery-add-button:active {
+  transform: translateY(0);
+}
+
 .admin-span-2 {
   grid-column: span 2;
 }

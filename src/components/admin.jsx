@@ -1293,7 +1293,7 @@ export function AdminDashboard({
                   />
                 </label>
                 <p className="admin-field-hint">
-                  Paste one or many Google Drive IDs, links, or image URLs. Click Add to gallery to append them to this program.
+                  Paste one or many Google Drive IDs, links, or image URLs. Click the plus button to append them to this program.
                 </p>
                 <button
                   type="button"
