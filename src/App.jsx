@@ -112,6 +112,8 @@ export default function App() {
     async function loadContent() {
       try {
         const content = await fetchSiteContent();
+        console.log("[BlueNode] /api/content payload", content);
+        console.log("[BlueNode] /api/content users", Array.isArray(content.users) ? content.users : []);
 
         if (!active) {
           return;
@@ -123,6 +125,7 @@ export default function App() {
         setUsers(Array.isArray(content.users) ? content.users : []);
         setContentSource("api");
       } catch {
+        console.warn("[BlueNode] failed to load /api/content, falling back to local storage");
         if (!active) {
           return;
         }
