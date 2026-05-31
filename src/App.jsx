@@ -61,6 +61,7 @@ export default function App() {
   const [users, setUsers] = useState(() => readStoredUsers());
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => readAdminSession());
   const [adminError, setAdminError] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [editingEvent, setEditingEvent] = useState(null);
   const [contentSource, setContentSource] = useState("local");
   const [isContentReady, setIsContentReady] = useState(false);
@@ -156,34 +157,17 @@ export default function App() {
     window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
   }, [events, programs, socialLinks, users, isContentReady]);
 
-  useEffect(() => {
-    if (!isContentReady || contentSource !== "api") {
-      return undefined;
+  async function persistContent(nextContent) {
+    try {
+      await saveSiteContent(nextContent);
+      setContentSource("api");
+      setSaveError("");
+      return true;
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Failed to save site content.");
+      return false;
     }
-
-    let cancelled = false;
-
-    async function persistContent() {
-      try {
-        await saveSiteContent({
-          events,
-          programs,
-          socialLinks,
-          users
-        });
-      } catch {
-        if (!cancelled) {
-          setContentSource("local");
-        }
-      }
-    }
-
-    persistContent();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [contentSource, events, programs, socialLinks, users, isContentReady]);
+  }
 
   const maxSlide = Math.max(0, programs.length - cardsPerView);
 
@@ -241,68 +225,108 @@ export default function App() {
     window.sessionStorage.removeItem(ADMIN_SESSION_KEY);
   }
 
-  function handleSaveEvent(event) {
-    setEvents((current) => {
-      const exists = current.some((item) => item.id === event.id);
-      if (exists) {
-        return current.map((item) => (item.id === event.id ? event : item));
-      }
+  async function handleSaveEvent(event) {
+    const nextEvents = events.some((item) => item.id === event.id)
+      ? events.map((item) => (item.id === event.id ? event : item))
+      : [...events, event];
 
-      return [...current, event];
-    });
-    setEditingEvent(null);
-  }
-
-  function handleDeleteEvent(eventId) {
-    setEvents((current) => current.filter((item) => item.id !== eventId));
-    if (editingEvent?.id === eventId) {
-      setEditingEvent(null);
-    }
-  }
-
-  function handleSaveProgram(program) {
-    setPrograms((current) => {
-      const exists = current.some((item) => (item.id || item.slug) === (program.id || program.slug));
-      if (exists) {
-        return current.map((item) => ((item.id || item.slug) === (program.id || program.slug) ? program : item));
-      }
-
-      return [...current, program];
+    setEvents(nextEvents);
+    return persistContent({
+      events: nextEvents,
+      programs,
+      socialLinks,
+      users
     });
   }
 
-  function handleDeleteProgram(programId) {
-    setPrograms((current) => current.filter((item) => (item.id || item.slug) !== programId));
-  }
+  async function handleDeleteEvent(eventId) {
+    const nextEvents = events.filter((item) => item.id !== eventId);
 
-  function handleSaveSocialLink(link) {
-    setSocialLinks((current) => {
-      const exists = current.some((item) => item.id === link.id);
-      if (exists) {
-        return current.map((item) => (item.id === link.id ? link : item));
-      }
-
-      return [...current, link];
+    setEvents(nextEvents);
+    return persistContent({
+      events: nextEvents,
+      programs,
+      socialLinks,
+      users
     });
   }
 
-  function handleDeleteSocialLink(linkId) {
-    setSocialLinks((current) => current.filter((item) => item.id !== linkId));
-  }
+  async function handleSaveProgram(program) {
+    const nextPrograms = programs.some((item) => (item.id || item.slug) === (program.id || program.slug))
+      ? programs.map((item) => ((item.id || item.slug) === (program.id || program.slug) ? program : item))
+      : [...programs, program];
 
-  function handleSaveUser(userEntry) {
-    setUsers((current) => {
-      const exists = current.some((item) => (item.id || item.user?.name) === (userEntry.id || userEntry.user?.name));
-      if (exists) {
-        return current.map((item) => ((item.id || item.user?.name) === (userEntry.id || userEntry.user?.name) ? userEntry : item));
-      }
-
-      return [...current, userEntry];
+    setPrograms(nextPrograms);
+    return persistContent({
+      events,
+      programs: nextPrograms,
+      socialLinks,
+      users
     });
   }
 
-  function handleDeleteUser(userId) {
-    setUsers((current) => current.filter((item) => (item.id || item.user?.name) !== userId));
+  async function handleDeleteProgram(programId) {
+    const nextPrograms = programs.filter((item) => (item.id || item.slug) !== programId);
+
+    setPrograms(nextPrograms);
+    return persistContent({
+      events,
+      programs: nextPrograms,
+      socialLinks,
+      users
+    });
+  }
+
+  async function handleSaveSocialLink(link) {
+    const nextSocialLinks = socialLinks.some((item) => item.id === link.id)
+      ? socialLinks.map((item) => (item.id === link.id ? link : item))
+      : [...socialLinks, link];
+
+    setSocialLinks(nextSocialLinks);
+    return persistContent({
+      events,
+      programs,
+      socialLinks: nextSocialLinks,
+      users
+    });
+  }
+
+  async function handleDeleteSocialLink(linkId) {
+    const nextSocialLinks = socialLinks.filter((item) => item.id !== linkId);
+
+    setSocialLinks(nextSocialLinks);
+    return persistContent({
+      events,
+      programs,
+      socialLinks: nextSocialLinks,
+      users
+    });
+  }
+
+  async function handleSaveUser(userEntry) {
+    const nextUsers = users.some((item) => (item.id || item.user?.name) === (userEntry.id || userEntry.user?.name))
+      ? users.map((item) => ((item.id || item.user?.name) === (userEntry.id || userEntry.user?.name) ? userEntry : item))
+      : [...users, userEntry];
+
+    setUsers(nextUsers);
+    return persistContent({
+      events,
+      programs,
+      socialLinks,
+      users: nextUsers
+    });
+  }
+
+  async function handleDeleteUser(userId) {
+    const nextUsers = users.filter((item) => (item.id || item.user?.name) !== userId);
+
+    setUsers(nextUsers);
+    return persistContent({
+      events,
+      programs,
+      socialLinks,
+      users: nextUsers
+    });
   }
 
   function renderPage() {
@@ -333,6 +357,7 @@ export default function App() {
           onDeleteUser={handleDeleteUser}
           editingEvent={editingEvent}
           setEditingEvent={setEditingEvent}
+          saveError={saveError}
         />
       ) : (
         <AdminLogin onLogin={handleAdminLogin} error={adminError} />

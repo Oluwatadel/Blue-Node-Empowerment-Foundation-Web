@@ -188,7 +188,8 @@ export function AdminDashboard({
   onSaveUser,
   onDeleteUser,
   editingEvent,
-  setEditingEvent
+  setEditingEvent,
+  saveError
 }) {
   const emptyEventForm = {
     id: "",
@@ -412,17 +413,20 @@ export function AdminDashboard({
     setSocialModalOpen(true);
   }
 
-  function saveEvent() {
-    onSaveEvent({
+  async function saveEvent() {
+    const saved = await onSaveEvent({
       ...eventFormState,
       id: eventFormState.id || `event-${Date.now()}`
     });
-    resetEventModal();
+
+    if (saved !== false) {
+      resetEventModal();
+    }
   }
 
-  function saveProgram() {
+  async function saveProgram() {
     const slug = programFormState.slug || slugify(programFormState.title);
-    onSaveProgram({
+    const saved = await onSaveProgram({
       id: programFormState.id || slug || `program-${Date.now()}`,
       slug,
       title: programFormState.title,
@@ -430,7 +434,10 @@ export function AdminDashboard({
       imageId: programFormState.imageId,
       galleryImageIds: normalizeGalleryImageIds(programFormState.galleryImageIds)
     });
-    resetProgramModal();
+
+    if (saved !== false) {
+      resetProgramModal();
+    }
   }
 
   function updateProgramGalleryImage(index, value) {
@@ -457,13 +464,13 @@ export function AdminDashboard({
     });
   }
 
-  function saveUser() {
+  async function saveUser() {
     const careerValue =
       userFormState.career === "Other"
         ? userFormState.careerOther.trim() || "Other"
         : userFormState.career;
 
-    onSaveUser({
+    const saved = await onSaveUser({
       id: userFormState.id || `user-${Date.now()}`,
       user: {
         name: userFormState.name,
@@ -474,11 +481,14 @@ export function AdminDashboard({
         career: careerValue
       }
     });
-    resetUserModal();
+
+    if (saved !== false) {
+      resetUserModal();
+    }
   }
 
-  function saveSocialLink() {
-    onSaveSocialLink({
+  async function saveSocialLink() {
+    const saved = await onSaveSocialLink({
       id: socialFormState.id || `social-${Date.now()}`,
       name: socialFormState.name,
       href: socialFormState.href,
@@ -486,7 +496,10 @@ export function AdminDashboard({
       handle: socialFormState.handle,
       description: socialFormState.description
     });
-    resetSocialModal();
+
+    if (saved !== false) {
+      resetSocialModal();
+    }
   }
 
   function askDelete(kind, item) {
@@ -510,40 +523,48 @@ export function AdminDashboard({
     setDeleteTarget({ kind, id, label });
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) {
       return;
     }
 
+    let saved = true;
+
     if (deleteTarget.kind === "event") {
-      onDeleteEvent(deleteTarget.id);
-      if (editingEvent?.id === deleteTarget.id) {
-        setEditingEvent(null);
-      }
+      saved = (await onDeleteEvent(deleteTarget.id)) !== false;
     }
 
     if (deleteTarget.kind === "program") {
-      onDeleteProgram(deleteTarget.id);
-      if (editingProgram && (editingProgram.slug === deleteTarget.id || editingProgram.id === deleteTarget.id)) {
-        setEditingProgram(null);
-      }
+      saved = (await onDeleteProgram(deleteTarget.id)) !== false;
     }
 
     if (deleteTarget.kind === "user") {
-      onDeleteUser(deleteTarget.id);
-      if ((editingUser?.id || editingUser?.user?.name || editingUser?.name) === deleteTarget.id) {
-        setEditingUser(null);
-      }
+      saved = (await onDeleteUser(deleteTarget.id)) !== false;
     }
 
     if (deleteTarget.kind === "social") {
-      onDeleteSocialLink(deleteTarget.id);
-      if (editingSocialLink?.id === deleteTarget.id) {
-        setEditingSocialLink(null);
-      }
+      saved = (await onDeleteSocialLink(deleteTarget.id)) !== false;
     }
 
-    setDeleteTarget(null);
+    if (saved) {
+      if (deleteTarget.kind === "event" && editingEvent?.id === deleteTarget.id) {
+        setEditingEvent(null);
+      }
+
+      if (deleteTarget.kind === "program" && editingProgram && (editingProgram.slug === deleteTarget.id || editingProgram.id === deleteTarget.id)) {
+        setEditingProgram(null);
+      }
+
+      if (deleteTarget.kind === "user" && (editingUser?.id || editingUser?.user?.name || editingUser?.name) === deleteTarget.id) {
+        setEditingUser(null);
+      }
+
+      if (deleteTarget.kind === "social" && editingSocialLink?.id === deleteTarget.id) {
+        setEditingSocialLink(null);
+      }
+
+      setDeleteTarget(null);
+    }
   }
 
   const userRows = users.map((entry) => ({
@@ -745,6 +766,12 @@ export function AdminDashboard({
               ) : null}
             </div>
           </div>
+
+          {saveError ? (
+            <p className="admin-error" role="alert">
+              {saveError}
+            </p>
+          ) : null}
 
           <div className="admin-hero">
             <div>
