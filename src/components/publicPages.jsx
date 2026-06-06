@@ -194,10 +194,9 @@ export function HomePage({ events, programs, users, portfolios, isMobile, onOpen
         <section className="hero" id="home">
           <div className="hero-copy" style={{ "--hero-image": `url("${heroBackground}")` }}>
             <p className="eyebrow">Blue Node Foundation</p>
-            <h1>Building brighter futures for families and children across Nigeria.</h1>
+            <h1>Supporting lives.</h1>
             <p className="hero-text">
-              We combine compassion with action through education support, medical outreach,
-              empowerment programs, and practical humanitarian care.
+             Strengthening communities.
             </p>
             <div className="hero-actions">
               <a className="btn primary" href="#programs">

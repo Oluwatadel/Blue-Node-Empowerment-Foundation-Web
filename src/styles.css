@@ -220,7 +220,7 @@ main,
 
 .hero {
   display: block;
-  padding: 52px 0 28px;
+  padding: 28px 0;
 }
 
 .hero-actions {
@@ -261,7 +261,7 @@ main,
   min-height: 720px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .eyebrow,
