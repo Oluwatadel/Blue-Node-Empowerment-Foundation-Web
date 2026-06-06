@@ -1,24 +1,49 @@
-export async function fetchSiteContent() {
-  const response = await fetch("/api/content");
-  if (!response.ok) {
-    throw new Error(`Failed to load site content (${response.status})`);
-  }
+import { requestJson } from "./apiClient.js";
 
-  return response.json();
+export async function fetchSiteContent() {
+  return requestJson("/api/content");
 }
 
 export async function saveSiteContent(content) {
-  const response = await fetch("/api/content", {
+  return requestJson("/api/content", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json"
     },
     body: JSON.stringify(content)
   });
+}
 
-  if (!response.ok) {
-    throw new Error(`Failed to save site content (${response.status})`);
-  }
+export async function fetchMessages() {
+  return requestJson("/api/messages");
+}
 
-  return response.json();
+export async function createMessage(message) {
+  return requestJson("/api/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(message)
+  });
+}
+
+export async function updateMessage(message) {
+  return requestJson("/api/messages", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(message)
+  });
+}
+
+export async function deleteMessage(messageId) {
+  return requestJson("/api/messages", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ id: messageId })
+  });
 }

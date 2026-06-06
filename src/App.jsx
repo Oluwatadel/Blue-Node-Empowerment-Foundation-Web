@@ -5,10 +5,18 @@ import {
   ADMIN_USERNAME,
   EVENTS_STORAGE_KEY,
   PROGRAMS_STORAGE_KEY,
+  PORTFOLIOS_STORAGE_KEY,
   SOCIAL_LINKS_STORAGE_KEY,
   USERS_STORAGE_KEY
 } from "./content/siteContent.js";
-import { fetchSiteContent, saveSiteContent } from "./lib/contentApi.js";
+import {
+  createMessage,
+  deleteMessage,
+  fetchMessages,
+  fetchSiteContent,
+  saveSiteContent,
+  updateMessage
+} from "./lib/contentApi.js";
 import {
   getActiveNavRoute,
   getCardsPerView,
@@ -18,8 +26,11 @@ import {
   readAdminSession,
   readStoredEvents,
   readStoredPrograms,
+  readStoredPortfolios,
   readStoredUsers,
-  readStoredSocialLinks
+  readStoredSocialLinks,
+  normalizePortfolioCategories,
+  normalizeUserEntries
 } from "./lib/siteUtils.js";
 import { SiteHeader, SocialFooter } from "./components/layout.jsx";
 import { AdminDashboard, AdminLogin } from "./components/admin.jsx";
@@ -57,8 +68,10 @@ export default function App() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [events, setEvents] = useState(() => readStoredEvents());
   const [programs, setPrograms] = useState(() => readStoredPrograms());
+  const [portfolios, setPortfolios] = useState(() => readStoredPortfolios());
   const [socialLinks, setSocialLinks] = useState(() => readStoredSocialLinks());
   const [users, setUsers] = useState(() => readStoredUsers());
+  const [messages, setMessages] = useState([]);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => readAdminSession());
   const [adminError, setAdminError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -119,8 +132,10 @@ export default function App() {
 
         setEvents(Array.isArray(content.events) ? content.events : []);
         setPrograms(Array.isArray(content.programs) ? content.programs : []);
+        const nextPortfolios = normalizePortfolioCategories(content.portfolios);
+        setPortfolios(nextPortfolios);
         setSocialLinks(Array.isArray(content.socialLinks) ? content.socialLinks : []);
-        setUsers(Array.isArray(content.users) ? content.users : []);
+        setUsers(normalizeUserEntries(content.users, nextPortfolios));
         setContentSource("api");
       } catch {
         if (!active) {
@@ -129,8 +144,9 @@ export default function App() {
 
         setEvents([]);
         setPrograms(readStoredPrograms());
+        setPortfolios(readStoredPortfolios());
         setSocialLinks(readStoredSocialLinks());
-        setUsers([]);
+        setUsers(readStoredUsers());
         setContentSource("local");
       } finally {
         if (active) {
@@ -147,15 +163,41 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadMessages() {
+      try {
+        const content = await fetchMessages();
+        if (!active) {
+          return;
+        }
+
+        setMessages(Array.isArray(content.messages) ? content.messages : []);
+      } catch {
+        if (active) {
+          setMessages([]);
+        }
+      }
+    }
+
+    loadMessages();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isContentReady) {
       return;
     }
 
     window.localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(events));
     window.localStorage.setItem(PROGRAMS_STORAGE_KEY, JSON.stringify(programs));
+    window.localStorage.setItem(PORTFOLIOS_STORAGE_KEY, JSON.stringify(portfolios));
     window.localStorage.setItem(SOCIAL_LINKS_STORAGE_KEY, JSON.stringify(socialLinks));
     window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-  }, [events, programs, socialLinks, users, isContentReady]);
+  }, [events, programs, portfolios, socialLinks, users, isContentReady]);
 
   async function persistContent(nextContent) {
     try {
@@ -164,7 +206,7 @@ export default function App() {
       setSaveError("");
       return true;
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Failed to save site content.");
+      setSaveError(error instanceof Error ? error.message : "Could not save site content right now. Please try again.");
       return false;
     }
   }
@@ -329,6 +371,124 @@ export default function App() {
     });
   }
 
+  async function handleSavePortfolio(portfolioEntry) {
+    const nextPortfolios = portfolios.some((item) => item.id === portfolioEntry.id)
+      ? portfolios.map((item) => (item.id === portfolioEntry.id ? portfolioEntry : item))
+      : [...portfolios, portfolioEntry];
+
+    const normalizedPortfolios = normalizePortfolioCategories(nextPortfolios);
+    setPortfolios(normalizedPortfolios);
+    return persistContent({
+      events,
+      programs,
+      portfolios: normalizedPortfolios,
+      socialLinks,
+      users
+    });
+  }
+
+  async function handleMovePortfolio(portfolioId, direction) {
+    const sortedPortfolios = [...portfolios].sort((left, right) => {
+      const leftOrder = Number.parseInt(String(left.displayOrder ?? 0), 10);
+      const rightOrder = Number.parseInt(String(right.displayOrder ?? 0), 10);
+
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+
+      return String(left.label || "").localeCompare(String(right.label || ""));
+    });
+
+    const currentIndex = sortedPortfolios.findIndex((item) => item.id === portfolioId);
+    const targetIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= sortedPortfolios.length) {
+      return false;
+    }
+
+    const nextPortfolios = sortedPortfolios.map((item) => ({ ...item }));
+    const currentItem = nextPortfolios[currentIndex];
+    const targetItem = nextPortfolios[targetIndex];
+    const currentOrder = currentItem.displayOrder;
+    currentItem.displayOrder = targetItem.displayOrder;
+    targetItem.displayOrder = currentOrder;
+
+    const normalizedPortfolios = normalizePortfolioCategories(nextPortfolios);
+    setPortfolios(normalizedPortfolios);
+
+    return persistContent({
+      events,
+      programs,
+      portfolios: normalizedPortfolios,
+      socialLinks,
+      users
+    });
+  }
+
+  async function handleDeletePortfolio(portfolioId) {
+    if (portfolios.length <= 1) {
+      return false;
+    }
+
+    const remainingPortfolios = portfolios.filter((item) => item.id !== portfolioId);
+    const normalizedPortfolios = normalizePortfolioCategories(remainingPortfolios);
+    const fallbackPortfolio = normalizedPortfolios[0];
+    const nextUsers = users.map((entry) => {
+      const user = entry.user ?? entry;
+      if ((user.portfolioId || "") !== portfolioId) {
+        return entry;
+      }
+
+      return {
+        ...entry,
+        user: {
+          ...user,
+          portfolioId: fallbackPortfolio?.id || "",
+          portfolio: fallbackPortfolio?.label || user.portfolio
+        }
+      };
+    });
+
+    setPortfolios(normalizedPortfolios);
+    setUsers(nextUsers);
+    return persistContent({
+      events,
+      programs,
+      portfolios: normalizedPortfolios,
+      socialLinks,
+      users: nextUsers
+    });
+  }
+
+  async function handleSubmitMessage(message) {
+    const created = await createMessage(message);
+    const nextMessage = created.message;
+
+    if (nextMessage) {
+      setMessages((current) => [nextMessage, ...current.filter((item) => item.id !== nextMessage.id)]);
+    }
+
+    return nextMessage;
+  }
+
+  async function handleUpdateMessage(message) {
+    const updated = await updateMessage(message);
+    const nextMessage = updated.message;
+
+    if (nextMessage) {
+      setMessages((current) => current.map((item) => (item.id === nextMessage.id ? nextMessage : item)));
+    } else if (message.status === "deleted") {
+      setMessages((current) => current.filter((item) => item.id !== message.id));
+    }
+
+    return nextMessage;
+  }
+
+  async function handleDeleteMessage(messageId) {
+    await deleteMessage(messageId);
+    setMessages((current) => current.filter((item) => item.id !== messageId));
+  }
+
   function renderPage() {
     if (route === "program-gallery" && selectedProgram) {
       return <ProgramGallery program={selectedProgram} />;
@@ -355,6 +515,13 @@ export default function App() {
           onDeleteSocialLink={handleDeleteSocialLink}
           onSaveUser={handleSaveUser}
           onDeleteUser={handleDeleteUser}
+          portfolios={portfolios}
+          onSavePortfolio={handleSavePortfolio}
+          onDeletePortfolio={handleDeletePortfolio}
+          onMovePortfolio={handleMovePortfolio}
+          messages={messages}
+          onUpdateMessage={handleUpdateMessage}
+          onDeleteMessage={handleDeleteMessage}
           editingEvent={editingEvent}
           setEditingEvent={setEditingEvent}
           saveError={saveError}
@@ -366,9 +533,9 @@ export default function App() {
 
     switch (route) {
       case "about":
-        return <AboutPage users={users} />;
+        return <AboutPage users={users} portfolios={portfolios} />;
       case "team":
-        return <TeamPage users={users} />;
+        return <TeamPage users={users} portfolios={portfolios} />;
       case "programs":
         return (
           <ProgramsPage
@@ -386,12 +553,12 @@ export default function App() {
       case "impact":
         return <ImpactPage />;
       case "contact":
-        return <ContactPage />;
+        return <ContactPage onSubmitMessage={handleSubmitMessage} />;
       case "socials":
         return <SocialsPage socialLinks={socialLinks} />;
       case "home":
       default:
-        return <HomePage events={events} programs={programs} users={users} isMobile={isMobile} onOpenTeamPage={openTeamPage} />;
+        return <HomePage events={events} programs={programs} users={users} portfolios={portfolios} isMobile={isMobile} onOpenTeamPage={openTeamPage} />;
     }
   }
 

@@ -71,9 +71,9 @@ img {
 }
 
 .logo-image {
-  width: 128px;
-  height: 128px;
-  margin: -20px 0;
+  width: 160px;
+  height: 160px;
+  margin: -30px 0;
   object-fit: contain;
   flex-shrink: 0;
 }
@@ -833,6 +833,8 @@ main,
 }
 
 .countdown-item {
+  min-width: 0;
+  overflow: hidden;
   padding: 14px 10px;
   border-radius: 18px;
   text-align: center;
@@ -842,13 +844,18 @@ main,
 .countdown-item strong {
   display: block;
   font-family: "Fraunces", serif;
-  font-size: 1.55rem;
+  font-size: clamp(1.05rem, 3.2vw, 1.55rem);
+  line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .countdown-item span {
+  display: block;
   font-size: 0.78rem;
+  line-height: 1.2;
   text-transform: uppercase;
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .event-detail-hero {
@@ -1124,10 +1131,13 @@ main,
 }
 
 .events-countdown-panel .countdown-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
 .events-countdown-panel .countdown-item {
+  min-width: 0;
+  overflow: hidden;
   padding: 18px 12px;
   border-radius: 16px;
   background: #fff;
@@ -1135,14 +1145,18 @@ main,
 }
 
 .events-countdown-panel .countdown-item strong {
-  font-size: clamp(2.2rem, 5vw, 3rem);
+  font-size: clamp(1.4rem, 4vw, 2.4rem);
+  line-height: 1;
   color: #f13333;
 }
 
 .events-countdown-panel .countdown-item span {
+  display: block;
   color: #10151d;
-  font-size: 0.92rem;
+  font-size: clamp(0.68rem, 1.8vw, 0.92rem);
+  line-height: 1.25;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .events-showcase-actions {
@@ -1661,6 +1675,21 @@ main,
   background: linear-gradient(135deg, var(--primary), var(--primary-deep));
 }
 
+.contact-form-status {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  background: rgba(29, 99, 216, 0.08);
+  color: var(--primary-deep);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.contact-form-status.error {
+  background: rgba(180, 35, 63, 0.08);
+  color: #b4233f;
+}
+
 .admin-shell {
   min-height: 0;
   flex: 1;
@@ -1779,8 +1808,8 @@ main,
 }
 
 .admin-sidebar-logo {
-  width: 54px;
-  height: 54px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
   flex-shrink: 0;
   filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.2));
@@ -1999,6 +2028,52 @@ main,
   min-width: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.admin-nav button {
+  position: relative;
+}
+
+.admin-nav-label {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.admin-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.admin-message-row.read td:not([data-label="Actions"]) {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.admin-message-row.unread td:not([data-label="Actions"]) {
+  font-weight: 700;
+}
+
+.admin-message-row.read {
+  background: rgba(29, 99, 216, 0.03);
+}
+
+.admin-message-table .admin-table tbody td:nth-child(3) {
+  max-width: 420px;
+}
+
+.admin-message-table .admin-table tbody td:nth-child(4),
+.admin-message-table .admin-table tbody td:nth-child(5) {
+  white-space: nowrap;
 }
 
 .admin-table tbody tr:last-child td {
@@ -3457,9 +3532,9 @@ main,
   }
 
   .logo-image {
-    width: 116px;
-    height: 116px;
-    margin: -18px 0;
+    width: 136px;
+    height: 136px;
+    margin: -22px 0;
   }
 
   .nav-actions {
@@ -3536,9 +3611,9 @@ main,
   }
 
   .logo-image {
-    width: 104px;
-    height: 104px;
-    margin: -14px 0;
+    width: 122px;
+    height: 122px;
+    margin: -18px 0;
   }
 
   .hero {

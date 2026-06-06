@@ -1,9 +1,11 @@
 import {
   ADMIN_SESSION_KEY,
+  defaultPortfolioCategories,
   defaultPrograms,
   defaultSocialLinks,
   EVENTS_STORAGE_KEY,
   PROGRAMS_STORAGE_KEY,
+  PORTFOLIOS_STORAGE_KEY,
   SOCIAL_LINKS_STORAGE_KEY,
   USERS_STORAGE_KEY,
   VOLUNTEERS_STORAGE_KEY,
@@ -87,6 +89,10 @@ export function readStoredPrograms() {
   return readStoredCollection(PROGRAMS_STORAGE_KEY, defaultPrograms);
 }
 
+export function readStoredPortfolios() {
+  return readStoredCollection(PORTFOLIOS_STORAGE_KEY, defaultPortfolioCategories, transformStoredPortfolios);
+}
+
 export function readStoredSocialLinks() {
   return readStoredCollection(SOCIAL_LINKS_STORAGE_KEY, defaultSocialLinks);
 }
@@ -100,23 +106,115 @@ export function readStoredVolunteers() {
 }
 
 function transformStoredUsers(value) {
+  return normalizeUserEntries(value);
+}
+
+function transformStoredPortfolios(value) {
+  return normalizePortfolioCategories(value);
+}
+
+export function normalizePortfolioCategories(value) {
+  if (!Array.isArray(value) || value.length === 0) {
+    return defaultPortfolioCategories;
+  }
+
+  const normalized = value.map((item, index) => {
+    const id = String(item?.id || item?.portfolioId || item?.slug || `portfolio-${index + 1}`).trim() || `portfolio-${index + 1}`;
+    const label = String(item?.label || item?.name || item?.title || item?.portfolio || "").trim() || `Portfolio ${index + 1}`;
+    return {
+      id,
+      label,
+      displayOrder: normalizeTeamDisplayOrder(item?.displayOrder ?? item?.order ?? index + 1, index + 1)
+    };
+  });
+
+  return sortPortfolioCategories(normalized);
+}
+
+export function sortPortfolioCategories(categories = []) {
+  return [...categories].sort((left, right) => {
+    const leftOrder = normalizeTeamDisplayOrder(left.displayOrder, Number.MAX_SAFE_INTEGER);
+    const rightOrder = normalizeTeamDisplayOrder(right.displayOrder, Number.MAX_SAFE_INTEGER);
+
+    if (leftOrder !== rightOrder) {
+      return leftOrder - rightOrder;
+    }
+
+    return String(left.label || "").localeCompare(String(right.label || ""));
+  });
+}
+
+export function getPortfolioCategoryByIdOrLabel(value, portfolios = defaultPortfolioCategories) {
+  const normalizedValue = String(value || "").trim().toLowerCase();
+  if (!normalizedValue) {
+    return portfolios[0] ?? null;
+  }
+
+  return (
+    portfolios.find((portfolio) => String(portfolio.id || "").toLowerCase() === normalizedValue) ??
+    portfolios.find((portfolio) => String(portfolio.label || "").trim().toLowerCase() === normalizedValue) ??
+    null
+  );
+}
+
+export function normalizeUserEntries(value, portfolios = defaultPortfolioCategories) {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value.map((item, index) => {
     const legacyUser = item?.user ?? item ?? {};
+    const matchedPortfolio =
+      getPortfolioCategoryByIdOrLabel(legacyUser.portfolioId || legacyUser.portfolio_id || legacyUser.portfolio, portfolios) ??
+      portfolios[0] ??
+      defaultPortfolioCategories[0];
     return {
       id: item?.id || `user-${index + 1}`,
       user: {
         name: legacyUser.name || "",
-        portfolio: normalizePortfolioValue(legacyUser.portfolio || legacyUser.post || ""),
+        portfolioId: matchedPortfolio?.id || "",
+        portfolio: matchedPortfolio?.label || normalizePortfolioValue(legacyUser.portfolio || legacyUser.post || ""),
         imageUrl: legacyUser.imageUrl || legacyUser.imageId || "",
         phoneNumber: legacyUser.phoneNumber || legacyUser.phone || "",
         email: legacyUser.email || "",
-        career: legacyUser.career || ""
+        career: legacyUser.career || "",
+        displayOrder: normalizeTeamDisplayOrder(legacyUser.displayOrder ?? legacyUser.order ?? legacyUser.teamOrder, index + 1)
       }
     };
+  });
+}
+
+export function normalizeTeamDisplayOrder(value, fallback = 0) {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+export function getPortfolioDisplayOrder(portfolio, portfolios = defaultPortfolioCategories) {
+  const matched = getPortfolioCategoryByIdOrLabel(portfolio?.portfolioId || portfolio?.portfolio || portfolio, portfolios);
+  return normalizeTeamDisplayOrder(matched?.displayOrder, Number.MAX_SAFE_INTEGER);
+}
+
+export function sortTeamEntries(entries = [], portfolios = defaultPortfolioCategories) {
+  return [...entries].sort((left, right) => {
+    const leftUser = left.user ?? left;
+    const rightUser = right.user ?? right;
+    const leftPortfolioOrder = getPortfolioDisplayOrder(leftUser, portfolios);
+    const rightPortfolioOrder = getPortfolioDisplayOrder(rightUser, portfolios);
+
+    if (leftPortfolioOrder !== rightPortfolioOrder) {
+      return leftPortfolioOrder - rightPortfolioOrder;
+    }
+
+    const leftOrder = normalizeTeamDisplayOrder(leftUser.displayOrder ?? left.displayOrder, Number.MAX_SAFE_INTEGER);
+    const rightOrder = normalizeTeamDisplayOrder(rightUser.displayOrder ?? right.displayOrder, Number.MAX_SAFE_INTEGER);
+
+    if (leftOrder !== rightOrder) {
+      return leftOrder - rightOrder;
+    }
+
+    const leftName = String(leftUser.name ?? left.name ?? "").toLowerCase();
+    const rightName = String(rightUser.name ?? right.name ?? "").toLowerCase();
+    return leftName.localeCompare(rightName);
   });
 }
 

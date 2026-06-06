@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatEventDate, normalizePortfolioValue, slugify } from "../lib/siteUtils.js";
-import { careerOptions, portfolioOptions, socialIconOptions } from "../content/siteContent.js";
+import {
+  formatEventDate,
+  getPortfolioCategoryByIdOrLabel,
+  normalizePortfolioCategories,
+  normalizePortfolioValue,
+  normalizeTeamDisplayOrder,
+  sortPortfolioCategories,
+  sortTeamEntries,
+  slugify
+} from "../lib/siteUtils.js";
+import { careerOptions, defaultPortfolioCategories, socialIconOptions } from "../content/siteContent.js";
 import { ManagedImage } from "./shared.jsx";
 
 function ModalShell({ title, subtitle, onClose, children, footer }) {
@@ -175,8 +184,10 @@ export function AdminLogin({ onLogin, error }) {
 export function AdminDashboard({
   events,
   programs,
+  portfolios,
   socialLinks,
   users,
+  messages,
   onLogout,
   onSaveEvent,
   onEditEvent,
@@ -187,6 +198,11 @@ export function AdminDashboard({
   onDeleteSocialLink,
   onSaveUser,
   onDeleteUser,
+  onSavePortfolio,
+  onDeletePortfolio,
+  onMovePortfolio,
+  onUpdateMessage,
+  onDeleteMessage,
   editingEvent,
   setEditingEvent,
   saveError
@@ -207,15 +223,24 @@ export function AdminDashboard({
     imageId: "",
     galleryImageIds: ["", ""]
   };
+  const portfolioChoices = sortPortfolioCategories(
+    normalizePortfolioCategories(portfolios?.length ? portfolios : defaultPortfolioCategories)
+  );
   const emptyUserForm = {
     id: "",
     name: "",
-    portfolio: portfolioOptions[0],
+    portfolioId: portfolioChoices[0]?.id || "",
+    displayOrder: "",
     imageUrl: "",
     phoneNumber: "",
     email: "",
     career: careerOptions[0],
     careerOther: ""
+  };
+  const emptyPortfolioForm = {
+    id: "",
+    label: "",
+    displayOrder: ""
   };
   const emptySocialForm = {
     id: "",
@@ -230,14 +255,17 @@ export function AdminDashboard({
   const [eventFormState, setEventFormState] = useState(emptyEventForm);
   const [programFormState, setProgramFormState] = useState(emptyProgramForm);
   const [userFormState, setUserFormState] = useState(emptyUserForm);
+  const [portfolioFormState, setPortfolioFormState] = useState(emptyPortfolioForm);
   const [socialFormState, setSocialFormState] = useState(emptySocialForm);
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [programModalOpen, setProgramModalOpen] = useState(false);
   const [userModalOpen, setUserModalOpen] = useState(false);
+  const [portfolioModalOpen, setPortfolioModalOpen] = useState(false);
   const [socialModalOpen, setSocialModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingProgram, setEditingProgram] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
+  const [editingPortfolio, setEditingPortfolio] = useState(null);
   const [editingSocialLink, setEditingSocialLink] = useState(null);
   const [galleryEditorProgram, setGalleryEditorProgram] = useState(null);
   const [galleryEditorState, setGalleryEditorState] = useState(null);
@@ -253,12 +281,38 @@ export function AdminDashboard({
   );
   const upcomingCount = sortedEvents.length;
   const nextEvent = sortedEvents[0];
+  const sortedMessages = useMemo(
+    () =>
+      [...(Array.isArray(messages) ? messages : [])].sort(
+        (left, right) => {
+          const leftPriority = left.status === "read" ? 0 : 1;
+          const rightPriority = right.status === "read" ? 0 : 1;
+
+          if (leftPriority !== rightPriority) {
+            return leftPriority - rightPriority;
+          }
+
+          return new Date(right.createdAt || 0) - new Date(left.createdAt || 0);
+        }
+      ),
+    [messages]
+  );
+  const unreadMessagesCount = sortedMessages.filter((message) => message.status === "new").length;
+  const portfolioStats = portfolioChoices.map((portfolio) => ({
+    ...portfolio,
+    count: users.filter((entry) => {
+      const user = entry.user ?? entry;
+      return user.portfolioId === portfolio.id || user.portfolio === portfolio.label;
+    }).length
+  }));
   const adminSections = [
     { id: "overview", label: "Overview" },
     { id: "events", label: "Events" },
     { id: "programs", label: "Programs" },
     { id: "gallery", label: "Gallery content" },
     { id: "users", label: "User management" },
+    { id: "portfolios", label: "Portfolio management" },
+    { id: "messages", label: "Messages", badge: unreadMessagesCount > 0 ? unreadMessagesCount : null },
     { id: "socials", label: "Social media" }
   ];
 
@@ -289,12 +343,13 @@ export function AdminDashboard({
   useEffect(() => {
     if (editingUser) {
       const user = editingUser.user ?? editingUser;
+      const matchedPortfolio =
+        getPortfolioCategoryByIdOrLabel(user.portfolioId || user.portfolio, portfolioChoices) || portfolioChoices[0];
       setUserFormState({
         id: editingUser.id || "",
         name: user.name || "",
-        portfolio: portfolioOptions.includes(normalizePortfolioValue(user.portfolio))
-          ? normalizePortfolioValue(user.portfolio)
-          : portfolioOptions[0],
+        portfolioId: matchedPortfolio?.id || portfolioChoices[0]?.id || "",
+        displayOrder: normalizeTeamDisplayOrder(user.displayOrder ?? editingUser.displayOrder, ""),
         imageUrl: user.imageUrl || "",
         phoneNumber: user.phoneNumber || "",
         email: user.email || "",
@@ -304,6 +359,17 @@ export function AdminDashboard({
       setUserModalOpen(true);
     }
   }, [editingUser]);
+
+  useEffect(() => {
+    if (editingPortfolio) {
+      setPortfolioFormState({
+        id: editingPortfolio.id || "",
+        label: editingPortfolio.label || "",
+        displayOrder: String(editingPortfolio.displayOrder || "")
+      });
+      setPortfolioModalOpen(true);
+    }
+  }, [editingPortfolio]);
 
   useEffect(() => {
     if (editingSocialLink) {
@@ -361,6 +427,12 @@ export function AdminDashboard({
     setUserModalOpen(false);
     setEditingUser(null);
     setUserFormState(emptyUserForm);
+  }
+
+  function resetPortfolioModal() {
+    setPortfolioModalOpen(false);
+    setEditingPortfolio(null);
+    setPortfolioFormState(emptyPortfolioForm);
   }
 
   function resetSocialModal() {
@@ -428,7 +500,10 @@ export function AdminDashboard({
 
   function openUserCreate() {
     setEditingUser(null);
-    setUserFormState(emptyUserForm);
+    setUserFormState({
+      ...emptyUserForm,
+      displayOrder: String(users.length + 1)
+    });
     setUserModalOpen(true);
   }
 
@@ -438,9 +513,11 @@ export function AdminDashboard({
     setUserFormState({
       id: entry.id || "",
       name: user.name || "",
-      portfolio: portfolioOptions.includes(normalizePortfolioValue(user.portfolio))
-        ? normalizePortfolioValue(user.portfolio)
-        : portfolioOptions[0],
+      portfolioId:
+        getPortfolioCategoryByIdOrLabel(user.portfolioId || user.portfolio, portfolioChoices)?.id ||
+        portfolioChoices[0]?.id ||
+        "",
+      displayOrder: normalizeTeamDisplayOrder(user.displayOrder ?? entry.displayOrder, ""),
       imageUrl: user.imageUrl || "",
       phoneNumber: user.phoneNumber || "",
       email: user.email || "",
@@ -448,6 +525,25 @@ export function AdminDashboard({
       careerOther: careerOptions.includes(user.career) ? "" : user.career || ""
     });
     setUserModalOpen(true);
+  }
+
+  function openPortfolioCreate() {
+    setEditingPortfolio(null);
+    setPortfolioFormState({
+      ...emptyPortfolioForm,
+      displayOrder: String(portfolioChoices.length + 1)
+    });
+    setPortfolioModalOpen(true);
+  }
+
+  function openPortfolioEdit(portfolio) {
+    setEditingPortfolio(portfolio);
+    setPortfolioFormState({
+      id: portfolio.id || "",
+      label: portfolio.label || "",
+      displayOrder: String(portfolio.displayOrder || "")
+    });
+    setPortfolioModalOpen(true);
   }
 
   function openSocialCreate() {
@@ -525,12 +621,16 @@ export function AdminDashboard({
       userFormState.career === "Other"
         ? userFormState.careerOther.trim() || "Other"
         : userFormState.career;
+    const selectedPortfolio =
+      getPortfolioCategoryByIdOrLabel(userFormState.portfolioId, portfolioChoices) || portfolioChoices[0];
 
     const saved = await onSaveUser({
       id: userFormState.id || `user-${Date.now()}`,
       user: {
         name: userFormState.name,
-        portfolio: userFormState.portfolio,
+        portfolioId: selectedPortfolio?.id || "",
+        portfolio: selectedPortfolio?.label || "",
+        displayOrder: normalizeTeamDisplayOrder(userFormState.displayOrder, users.length + 1),
         imageUrl: userFormState.imageUrl,
         phoneNumber: userFormState.phoneNumber,
         email: userFormState.email,
@@ -558,6 +658,18 @@ export function AdminDashboard({
     }
   }
 
+  async function savePortfolio() {
+    const saved = await onSavePortfolio({
+      id: portfolioFormState.id || `portfolio-${Date.now()}`,
+      label: String(portfolioFormState.label || "").trim(),
+      displayOrder: normalizeTeamDisplayOrder(portfolioFormState.displayOrder, portfolioChoices.length + 1)
+    });
+
+    if (saved !== false) {
+      resetPortfolioModal();
+    }
+  }
+
   function askDelete(kind, item) {
     const id =
       kind === "event"
@@ -566,6 +678,8 @@ export function AdminDashboard({
           ? item.slug
           : kind === "user"
             ? item.id || item.user?.name || item.name
+            : kind === "portfolio"
+              ? item.id
             : item.id;
     const label =
       kind === "event"
@@ -574,6 +688,8 @@ export function AdminDashboard({
           ? item.title
           : kind === "user"
             ? item.user?.name || item.name
+            : kind === "portfolio"
+              ? item.label
             : item.name;
 
     setDeleteTarget({ kind, id, label });
@@ -612,16 +728,25 @@ export function AdminDashboard({
           resetSocialModal();
         }
       }
+
+      if (deleteTarget.kind === "portfolio") {
+        await onDeletePortfolio(deleteTarget.id);
+        if (editingPortfolio?.id === deleteTarget.id) {
+          resetPortfolioModal();
+        }
+      }
     } finally {
       setDeleteTarget(null);
     }
   }
 
-  const userRows = users.map((entry) => ({
+  const userRows = sortTeamEntries(users, portfolioChoices).map((entry) => ({
     id: entry.id || entry.user?.name || entry.name,
     data: {
       ...(entry.user ?? entry),
-      portfolio: normalizePortfolioValue((entry.user ?? entry).portfolio)
+      portfolio: normalizePortfolioValue((entry.user ?? entry).portfolio),
+      portfolioId: (entry.user ?? entry).portfolioId || "",
+      displayOrder: normalizeTeamDisplayOrder((entry.user ?? entry).displayOrder ?? entry.displayOrder)
     }
   }));
 
@@ -762,7 +887,8 @@ export function AdminDashboard({
                 onClick={() => selectSection(section.id)}
               >
                 <span className="admin-nav-dot" aria-hidden="true" />
-                {section.label}
+                <span className="admin-nav-label">{section.label}</span>
+                {section.badge ? <span className="admin-nav-badge">{section.badge}</span> : null}
                 <span className="admin-nav-arrow" aria-hidden="true">
                   {">"}
                 </span>
@@ -845,6 +971,10 @@ export function AdminDashboard({
                   "Refine the images attached to each program gallery and keep the public photo pages current."}
                 {activeSection === "users" &&
                   "Keep user profiles, roles, photos, contact details, and career notes current across the public team section."}
+                {activeSection === "portfolios" &&
+                  "Review the portfolio categories available to the team and how many users are assigned to each."}
+                {activeSection === "messages" &&
+                  "Review incoming contact messages, mark them as read, and remove anything that is no longer needed."}
                 {activeSection === "socials" &&
                   "Keep the home and socials pages current with the right links, handles, and platform descriptions."}
               </p>
@@ -879,6 +1009,16 @@ export function AdminDashboard({
                     <span className="admin-stat-label">Users</span>
                     <strong>{users.length}</strong>
                     <p>User profiles shown publicly on the About page and editable here.</p>
+                  </article>
+                  <article className="admin-metric-card">
+                    <span className="admin-stat-label">Portfolios</span>
+                    <strong>{portfolioStats.length}</strong>
+                    <p>Available team portfolio categories and how many profiles use each one.</p>
+                  </article>
+                  <article className="admin-metric-card">
+                    <span className="admin-stat-label">Messages</span>
+                    <strong>{sortedMessages.length}</strong>
+                    <p>{unreadMessagesCount} unread contact messages waiting in the inbox.</p>
                   </article>
                   <article className="admin-metric-card">
                     <span className="admin-stat-label">Social channels</span>
@@ -917,9 +1057,23 @@ export function AdminDashboard({
                   </TableCard>
 
                   <TableCard
+                    title="Portfolio management"
+                    subtitle="Overview"
+                    columns={["Portfolio", "Users", "Status"]}
+                  >
+                    {renderTableRows(portfolioStats, (item) => (
+                      <tr key={item.portfolio}>
+                        <td data-label="Portfolio">{item.portfolio}</td>
+                        <td data-label="Users">{item.count}</td>
+                        <td data-label="Status">{item.count > 0 ? "Active" : "Unused"}</td>
+                      </tr>
+                    ))}
+                  </TableCard>
+
+                  <TableCard
                     title="User management"
                     subtitle="Overview"
-                    columns={["Name", "Portfolio", "Email"]}
+                    columns={["Name", "Portfolio", "Order", "Email"]}
                     tableClassName="admin-user-table"
                   >
                     {renderTableRows(userRows, (entry) => (
@@ -935,6 +1089,7 @@ export function AdminDashboard({
                           </div>
                         </td>
                         <td data-label="Portfolio">{entry.data.portfolio}</td>
+                        <td data-label="Order">{entry.data.displayOrder}</td>
                         <td data-label="Email">{entry.data.email || "No email assigned"}</td>
                       </tr>
                     ))}
@@ -1047,7 +1202,7 @@ export function AdminDashboard({
                 subtitle="Manage"
                 createLabel="Create user"
                 onCreate={openUserCreate}
-                columns={["Name", "Portfolio", "Email", "Actions"]}
+                columns={["Name", "Portfolio", "Order", "Email", "Actions"]}
                 tableClassName="admin-user-table"
               >
                 {renderTableRows(userRows, (entry) => (
@@ -1063,6 +1218,7 @@ export function AdminDashboard({
                       </div>
                     </td>
                     <td data-label="Portfolio">{entry.data.portfolio}</td>
+                    <td data-label="Order">{entry.data.displayOrder}</td>
                     <td data-label="Email">{entry.data.email || "No email assigned"}</td>
                     <td data-label="Actions">
                       <div className="admin-table-actions">
@@ -1070,6 +1226,52 @@ export function AdminDashboard({
                           Edit
                         </button>
                         <button type="button" className="btn danger" onClick={() => askDelete("user", entry)}>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </TableCard>
+            ) : null}
+
+            {activeSection === "portfolios" ? (
+              <TableCard
+                title="Portfolio management"
+                subtitle="Manage"
+                createLabel="Create portfolio"
+                onCreate={openPortfolioCreate}
+                columns={["Portfolio", "Users", "Status", "Actions"]}
+              >
+                {renderTableRows(portfolioStats, (item, index) => (
+                  <tr key={item.id}>
+                    <td data-label="Portfolio">{item.label}</td>
+                    <td data-label="Users">{item.count}</td>
+                    <td data-label="Status">{item.count > 0 ? "Active" : "Unused"}</td>
+                    <td data-label="Actions">
+                      <div className="admin-table-actions">
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          onClick={() => onMovePortfolio(item.id, -1)}
+                          disabled={index === 0}
+                          aria-label="Move portfolio up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          onClick={() => onMovePortfolio(item.id, 1)}
+                          disabled={index === portfolioStats.length - 1}
+                          aria-label="Move portfolio down"
+                        >
+                          ↓
+                        </button>
+                        <button type="button" className="btn secondary" onClick={() => openPortfolioEdit(item)}>
+                          Edit
+                        </button>
+                        <button type="button" className="btn danger" onClick={() => askDelete("portfolio", item)}>
                           Delete
                         </button>
                       </div>
@@ -1099,6 +1301,42 @@ export function AdminDashboard({
                           Edit
                         </button>
                         <button type="button" className="btn danger" onClick={() => askDelete("social", link)}>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </TableCard>
+            ) : null}
+
+            {activeSection === "messages" ? (
+              <TableCard
+                title="Contact messages"
+                subtitle="Manage"
+                columns={["Name", "Email", "Message", "Status", "Date", "Actions"]}
+                tableClassName="admin-message-table"
+              >
+                {renderTableRows(sortedMessages, (message) => (
+                  <tr
+                    key={message.id}
+                    className={message.status === "read" ? "admin-message-row read" : "admin-message-row unread"}
+                  >
+                    <td data-label="Name">{message.name}</td>
+                    <td data-label="Email">{message.email || "No email provided"}</td>
+                    <td data-label="Message">{message.message}</td>
+                    <td data-label="Status">{message.status}</td>
+                    <td data-label="Date">{formatEventDate(message.createdAt)}</td>
+                    <td data-label="Actions">
+                      <div className="admin-table-actions">
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          onClick={() => onUpdateMessage({ id: message.id, status: message.status === "new" ? "read" : "new" })}
+                        >
+                          {message.status === "new" ? "Mark read" : "Mark unread"}
+                        </button>
+                        <button type="button" className="btn danger" onClick={() => onDeleteMessage(message.id)}>
                           Delete
                         </button>
                       </div>
@@ -1387,6 +1625,19 @@ export function AdminDashboard({
                 ))}
               </select>
             </label>
+            <label>
+              Display order
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={userFormState.displayOrder}
+                onChange={(event) => setUserFormState((current) => ({ ...current, displayOrder: event.target.value }))}
+              />
+            </label>
+            <p className="admin-span-2 admin-field-hint">
+              Lower numbers appear first on the team page and in the admin list.
+            </p>
             <label className="admin-span-2">
               Image URL, Drive link, or ID
               <input
@@ -1439,6 +1690,49 @@ export function AdminDashboard({
                 />
               </label>
             ) : null}
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {portfolioModalOpen ? (
+        <ModalShell
+          title={editingPortfolio ? "Edit portfolio" : "Create portfolio"}
+          subtitle={editingPortfolio ? "Editing" : "New content"}
+          onClose={resetPortfolioModal}
+          footer={
+            <>
+              <button type="button" className="btn secondary" onClick={resetPortfolioModal}>
+                Cancel
+              </button>
+              <button type="button" className="submit-btn" onClick={savePortfolio}>
+                Save portfolio
+              </button>
+            </>
+          }
+        >
+          <div className="admin-form-grid admin-modal-form-grid">
+            <label className="admin-span-2">
+              Portfolio name
+              <input
+                value={portfolioFormState.label}
+                onChange={(event) => setPortfolioFormState((current) => ({ ...current, label: event.target.value }))}
+              />
+            </label>
+            <label>
+              Display order
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={portfolioFormState.displayOrder}
+                onChange={(event) =>
+                  setPortfolioFormState((current) => ({ ...current, displayOrder: event.target.value }))
+                }
+              />
+            </label>
+            <p className="admin-span-2 admin-field-hint">
+              Lower numbers appear first on the team page and homepage.
+            </p>
           </div>
         </ModalShell>
       ) : null}

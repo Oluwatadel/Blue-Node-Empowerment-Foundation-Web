@@ -4,20 +4,22 @@ export const EVENTS_STORAGE_KEY = "bluenode-upcoming-events";
 export const PROGRAMS_STORAGE_KEY = "bluenode-programs";
 export const SOCIAL_LINKS_STORAGE_KEY = "bluenode-social-links";
 export const USERS_STORAGE_KEY = "bluenode-users";
+export const PORTFOLIOS_STORAGE_KEY = "bluenode-portfolios";
 export const VOLUNTEERS_STORAGE_KEY = "bluenode-volunteers";
 export const ADMIN_SESSION_KEY = "bluenode-admin-auth";
 export const HOME_HERO_IMAGE_ID = "1BPdzTrpajXolvDUkDgVBZmLxW7VLiqiG";
 export const socialIconOptions = ["facebook", "instagram", "x", "linkedin", "youtube", "tiktok", "whatsapp", "email"];
-export const portfolioOptions = [
-  "members",
-  "Executive director",
-  "Founder",
-  "cofounder",
-  "PRO",
-  "Tech Lead",
-  "Program Cordinator",
-  "Secretary"
+export const defaultPortfolioCategories = [
+  { id: "portfolio-members", label: "members", displayOrder: 1 },
+  { id: "portfolio-executive-director", label: "Executive director", displayOrder: 2 },
+  { id: "portfolio-founder", label: "Founder", displayOrder: 3 },
+  { id: "portfolio-cofounder", label: "cofounder", displayOrder: 4 },
+  { id: "portfolio-pro", label: "PRO", displayOrder: 5 },
+  { id: "portfolio-tech-lead", label: "Tech Lead", displayOrder: 6 },
+  { id: "portfolio-program-cordinator", label: "Program Cordinator", displayOrder: 7 },
+  { id: "portfolio-secretary", label: "Secretary", displayOrder: 8 }
 ];
+export const portfolioOptions = defaultPortfolioCategories.map((category) => category.label);
 export const careerOptions = [
   "Community leadership",
   "Program management",

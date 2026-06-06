@@ -1,27 +1,50 @@
 import { useEffect, useState } from "react";
-import { aboutCards, HOME_HERO_IMAGE_ID, portfolioOptions, quickLinks } from "../content/siteContent.js";
-import { getDriveThumbnailUrl, formatEventDate, getCountdownParts, isExternalLink, normalizePortfolioValue } from "../lib/siteUtils.js";
+import { aboutCards, HOME_HERO_IMAGE_ID, quickLinks } from "../content/siteContent.js";
+import {
+  getDriveThumbnailUrl,
+  formatEventDate,
+  getCountdownParts,
+  getPortfolioCategoryByIdOrLabel,
+  isExternalLink,
+  normalizePortfolioValue,
+  normalizePortfolioCategories,
+  sortTeamEntries
+} from "../lib/siteUtils.js";
 import { AutoPlayCarousel, Countdown, DriveImage, ManagedImage, PageShell, SocialIcon } from "./shared.jsx";
 
-const MEMBER_PORTFOLIO = "members";
-const EXECUTIVE_PORTFOLIOS = new Set(portfolioOptions.filter((portfolio) => portfolio !== MEMBER_PORTFOLIO));
+function normalizeUsersForView(users = [], portfolios = []) {
+  const normalizedPortfolios = normalizePortfolioCategories(portfolios);
 
-function splitTeamMembers(users = []) {
-  const normalized = users.map((entry) => ({
+  return users.map((entry) => ({
     id: entry.id,
     user: (() => {
       const user = entry.user ?? entry;
+      const portfolio = getPortfolioCategoryByIdOrLabel(user.portfolioId || user.portfolio, normalizedPortfolios);
       return {
         ...user,
-        portfolio: normalizePortfolioValue(user.portfolio)
+        portfolioId: portfolio?.id || user.portfolioId || "",
+        portfolio: portfolio?.label || normalizePortfolioValue(user.portfolio)
       };
     })()
   }));
+}
 
-  const excos = normalized.filter((entry) => EXECUTIVE_PORTFOLIOS.has(entry.user.portfolio));
-  const members = normalized.filter((entry) => entry.user.portfolio === MEMBER_PORTFOLIO);
+function groupUsersByPortfolio(users = [], portfolios = []) {
+  const normalizedPortfolios = normalizePortfolioCategories(portfolios);
+  const normalizedUsers = normalizeUsersForView(users, normalizedPortfolios);
 
-  return { excos, members, allMembers: normalized };
+  return normalizedPortfolios
+    .map((portfolio) => ({
+      portfolio,
+      users: sortTeamEntries(
+        normalizedUsers.filter((entry) => {
+          const userPortfolio = entry.user ?? entry;
+          return userPortfolio.portfolioId === portfolio.id || userPortfolio.portfolio === portfolio.label;
+        }),
+        normalizedPortfolios
+      )
+    }))
+    .filter((group) => group.users.length > 0);
 }
 
 function TeamCard({ entry }) {
@@ -129,12 +152,12 @@ function UpcomingEventsSection({ events }) {
   );
 }
 
-function HomeTeamSection({ users, onOpenTeamPage }) {
+function HomeTeamSection({ users, portfolios, onOpenTeamPage }) {
   if (!Array.isArray(users) || users.length === 0) {
     return null;
   }
 
-  const featuredUsers = users.slice(0, 3);
+  const featuredUsers = sortTeamEntries(users, portfolios).slice(0, 3);
   const showSeeMoreButton = users.length > featuredUsers.length;
 
   return (
@@ -161,8 +184,9 @@ function HomeTeamSection({ users, onOpenTeamPage }) {
   );
 }
 
-export function HomePage({ events, programs, users, isMobile, onOpenTeamPage }) {
+export function HomePage({ events, programs, users, portfolios, isMobile, onOpenTeamPage }) {
   const heroBackground = getDriveThumbnailUrl(HOME_HERO_IMAGE_ID);
+  const normalizedUsers = normalizeUsersForView(users, portfolios);
 
   return (
     <>
@@ -211,15 +235,15 @@ export function HomePage({ events, programs, users, isMobile, onOpenTeamPage }) 
           />
         </section>
 
-        <HomeTeamSection users={users} onOpenTeamPage={onOpenTeamPage} />
+        <HomeTeamSection users={normalizedUsers} portfolios={portfolios} onOpenTeamPage={onOpenTeamPage} />
         <QuickLinksSection />
       </main>
     </>
   );
 }
 
-export function AboutPage({ users = [] }) {
-  const { excos } = splitTeamMembers(users);
+export function AboutPage({ users = [], portfolios = [] }) {
+  const featuredUsers = sortTeamEntries(normalizeUsersForView(users, portfolios), portfolios).slice(0, 4);
 
   return (
     <PageShell
@@ -247,7 +271,7 @@ export function AboutPage({ users = [] }) {
         </div>
 
         <div className="team-grid">
-          {excos.map((entry) => (
+          {featuredUsers.map((entry) => (
             <TeamCard key={entry.id || entry.user.name} entry={entry} />
           ))}
         </div>
@@ -257,8 +281,8 @@ export function AboutPage({ users = [] }) {
   );
 }
 
-export function TeamPage({ users = [] }) {
-  const { excos, members } = splitTeamMembers(users);
+export function TeamPage({ users = [], portfolios = [] }) {
+  const groupedUsers = groupUsersByPortfolio(users, portfolios);
 
   return (
     <PageShell
@@ -266,29 +290,19 @@ export function TeamPage({ users = [] }) {
       title="Meet the people behind Blue Node Foundation."
       body="This page brings together the executive team, support crew, and wider members in one place."
     >
-      <section className="section-shell team-section">
-        <div className="section-heading">
-          <p className="section-kicker">Excos</p>
-          <h2>Executive team.</h2>
-        </div>
-        <div className="team-grid">
-          {excos.map((entry) => (
-            <TeamCard key={entry.id || entry.user.name} entry={entry} />
-          ))}
-        </div>
-      </section>
-
-      <section className="section-shell team-section">
-        <div className="section-heading">
-          <p className="section-kicker">Members</p>
-          <h2>Team members and support crew.</h2>
-        </div>
-        <div className="team-grid">
-          {members.map((entry) => (
-            <TeamCard key={entry.id || entry.user.name} entry={entry} />
-          ))}
-        </div>
-      </section>
+      {groupedUsers.map((group) => (
+        <section className="section-shell team-section" key={group.portfolio.id}>
+          <div className="section-heading">
+            <p className="section-kicker">Portfolio</p>
+            <h2>{group.portfolio.label}.</h2>
+          </div>
+          <div className="team-grid">
+            {group.users.map((entry) => (
+              <TeamCard key={entry.id || entry.user.name} entry={entry} />
+            ))}
+          </div>
+        </section>
+      ))}
     </PageShell>
   );
 }
@@ -391,7 +405,45 @@ export function ImpactPage() {
   );
 }
 
-export function ContactPage() {
+export function ContactPage({ onSubmitMessage }) {
+  const [formState, setFormState] = useState({
+    name: "",
+    email: "",
+    message: ""
+  });
+  const [submissionState, setSubmissionState] = useState({ status: "idle", note: "" });
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSubmissionState({ status: "sending", note: "" });
+
+    try {
+      if (typeof onSubmitMessage !== "function") {
+        throw new Error("Message submission is not available right now.");
+      }
+
+      await onSubmitMessage({
+        id: `message-${Date.now()}`,
+        name: formState.name.trim(),
+        email: formState.email.trim(),
+        message: formState.message.trim(),
+        createdAt: new Date().toISOString()
+      });
+
+      setFormState({
+        name: "",
+        email: "",
+        message: ""
+      });
+      setSubmissionState({ status: "success", note: "Your message has been sent and saved for the admin team." });
+    } catch (error) {
+      setSubmissionState({
+        status: "error",
+        note: error instanceof Error ? error.message : "We could not send your message right now."
+      });
+    }
+  }
+
   return (
     <PageShell
       kicker="Contact us"
@@ -420,21 +472,43 @@ export function ContactPage() {
           </ul>
         </div>
 
-        <form className="contact-form">
+        <form className="contact-form" onSubmit={handleSubmit}>
           <label>
             Full Name
-            <input type="text" placeholder="Enter full name" />
+            <input
+              type="text"
+              placeholder="Enter full name"
+              value={formState.name}
+              onChange={(event) => setFormState((current) => ({ ...current, name: event.target.value }))}
+              required
+            />
           </label>
           <label>
             Email
-            <input type="email" placeholder="Enter email address" />
+            <input
+              type="email"
+              placeholder="Enter email address"
+              value={formState.email}
+              onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))}
+            />
           </label>
           <label>
             Message
-            <textarea rows="5" placeholder="Tell us how you'd like to connect..." />
+            <textarea
+              rows="5"
+              placeholder="Tell us how you'd like to connect..."
+              value={formState.message}
+              onChange={(event) => setFormState((current) => ({ ...current, message: event.target.value }))}
+              required
+            />
           </label>
+          {submissionState.note ? (
+            <p className={submissionState.status === "error" ? "contact-form-status error" : "contact-form-status"}>
+              {submissionState.note}
+            </p>
+          ) : null}
           <button type="submit" className="submit-btn">
-            Send Message
+            {submissionState.status === "sending" ? "Sending..." : "Send Message"}
           </button>
         </form>
       </div>

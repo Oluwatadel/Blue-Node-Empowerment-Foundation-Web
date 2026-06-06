@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Pool } from "@neondatabase/serverless";
-import { defaultPrograms, defaultSocialLinks } from "../src/content/siteContent.js";
+import { defaultPortfolioCategories, defaultPrograms, defaultSocialLinks } from "../src/content/siteContent.js";
 
 function parseEnvFile(raw) {
   const env = {};
@@ -101,6 +101,17 @@ async function main() {
         );
       }
 
+      for (const portfolio of defaultPortfolioCategories) {
+        await client.query(
+          `
+            INSERT INTO portfolio_categories (id, label, display_order)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (id) DO NOTHING
+          `,
+          [portfolio.id, portfolio.label, portfolio.displayOrder]
+        );
+      }
+
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -108,7 +119,7 @@ async function main() {
     }
 
     console.log(
-      `Migration complete: ${statements.length} statement(s) applied from migrations/001_init.sql, ${defaultPrograms.length} program record(s) seeded, and ${defaultSocialLinks.length} social link record(s) seeded`
+      `Migration complete: ${statements.length} statement(s) applied from migrations/001_init.sql, ${defaultPrograms.length} program record(s) seeded, ${defaultPortfolioCategories.length} portfolio category record(s) seeded, and ${defaultSocialLinks.length} social link record(s) seeded`
     );
   } finally {
     client.release();
