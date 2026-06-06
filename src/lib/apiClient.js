@@ -10,10 +10,27 @@ export class ApiError extends Error {
 async function readErrorMessage(response) {
   try {
     const payload = await response.json();
-    if (payload && typeof payload.message === "string" && payload.message.trim()) {
+    const serverMessage = typeof payload?.message === "string" ? payload.message.trim() : "";
+    const serverError = typeof payload?.error === "string" ? payload.error.trim() : "";
+
+    if (response.status >= 500) {
       return {
-        message: payload.message.trim(),
-        code: typeof payload.code === "string" ? payload.code : ""
+        message: "Something went wrong on our side. Please try again.",
+        code: typeof payload?.code === "string" && payload.code.trim() ? payload.code.trim() : "SERVER_ERROR"
+      };
+    }
+
+    if (serverMessage) {
+      return {
+        message: serverMessage,
+        code: typeof payload?.code === "string" ? payload.code : ""
+      };
+    }
+
+    if (serverError) {
+      return {
+        message: serverError,
+        code: typeof payload?.code === "string" ? payload.code : ""
       };
     }
   } catch {
@@ -21,8 +38,8 @@ async function readErrorMessage(response) {
   }
 
   return {
-    message: `Request failed (${response.status})`,
-    code: ""
+    message: response.status >= 500 ? "Something went wrong on our side. Please try again." : "Something went wrong. Please try again.",
+    code: response.status >= 500 ? "SERVER_ERROR" : ""
   };
 }
 

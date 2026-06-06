@@ -1615,12 +1615,12 @@ export function AdminDashboard({
             <label className="admin-span-2">
               Portfolio
               <select
-                value={userFormState.portfolio}
-                onChange={(event) => setUserFormState((current) => ({ ...current, portfolio: event.target.value }))}
+                value={userFormState.portfolioId}
+                onChange={(event) => setUserFormState((current) => ({ ...current, portfolioId: event.target.value }))}
               >
-                {portfolioOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
+                {portfolioChoices.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
                   </option>
                 ))}
               </select>

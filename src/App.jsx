@@ -206,7 +206,10 @@ export default function App() {
       setSaveError("");
       return true;
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Could not save site content right now. Please try again.");
+      console.error("Failed to save site content:", error);
+      setSaveError(
+        "We could not save your changes right now. Please try again in a moment."
+      );
       return false;
     }
   }
