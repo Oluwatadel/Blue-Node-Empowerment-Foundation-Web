@@ -513,7 +513,7 @@ main,
 
 .team-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -3395,8 +3395,7 @@ main,
   .admin-overview-notes,
   .admin-panel-grid,
   .admin-mini-grid,
-  .social-grid-detailed,
-  .team-grid {
+  .social-grid-detailed {
     grid-template-columns: 1fr;
   }
 
@@ -3438,7 +3437,7 @@ main,
   }
 
   .team-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .admin-workspace {

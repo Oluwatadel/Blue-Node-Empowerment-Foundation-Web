@@ -157,7 +157,7 @@ function HomeTeamSection({ users, portfolios, onOpenTeamPage }) {
     return null;
   }
 
-  const featuredUsers = sortTeamEntries(users, portfolios).slice(0, 3);
+  const featuredUsers = sortTeamEntries(users, portfolios).slice(0, 4);
   const showSeeMoreButton = users.length > featuredUsers.length;
 
   return (
@@ -176,7 +176,7 @@ function HomeTeamSection({ users, portfolios, onOpenTeamPage }) {
       {showSeeMoreButton ? (
         <div className="team-section-footer">
           <button type="button" className="btn primary" onClick={onOpenTeamPage} aria-label="Open the full team page">
-            View full team
+            View more
           </button>
         </div>
       ) : null}
