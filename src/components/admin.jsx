@@ -188,6 +188,7 @@ export function AdminDashboard({
   socialLinks,
   users,
   messages,
+  volunteers,
   onLogout,
   onSaveEvent,
   onEditEvent,
@@ -203,6 +204,8 @@ export function AdminDashboard({
   onMovePortfolio,
   onUpdateMessage,
   onDeleteMessage,
+  onConvertVolunteer,
+  onDeleteVolunteer,
   editingEvent,
   setEditingEvent,
   saveError
@@ -265,6 +268,7 @@ export function AdminDashboard({
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingProgram, setEditingProgram] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
+  const [convertingVolunteer, setConvertingVolunteer] = useState(null);
   const [editingPortfolio, setEditingPortfolio] = useState(null);
   const [editingSocialLink, setEditingSocialLink] = useState(null);
   const [galleryEditorProgram, setGalleryEditorProgram] = useState(null);
@@ -298,6 +302,14 @@ export function AdminDashboard({
     [messages]
   );
   const unreadMessagesCount = sortedMessages.filter((message) => message.status === "new").length;
+  const sortedVolunteers = useMemo(
+    () =>
+      [...(Array.isArray(volunteers) ? volunteers : [])].sort(
+        (left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0)
+      ),
+    [volunteers]
+  );
+  const pendingVolunteersCount = sortedVolunteers.filter((volunteer) => volunteer.status !== "converted").length;
   const portfolioStats = portfolioChoices.map((portfolio) => ({
     ...portfolio,
     count: users.filter((entry) => {
@@ -313,6 +325,7 @@ export function AdminDashboard({
     { id: "users", label: "User management" },
     { id: "portfolios", label: "Portfolio management" },
     { id: "messages", label: "Messages", badge: unreadMessagesCount > 0 ? unreadMessagesCount : null },
+    { id: "volunteers", label: "Volunteers", badge: pendingVolunteersCount > 0 ? pendingVolunteersCount : null },
     { id: "socials", label: "Social media" }
   ];
 
@@ -426,6 +439,7 @@ export function AdminDashboard({
   function resetUserModal() {
     setUserModalOpen(false);
     setEditingUser(null);
+    setConvertingVolunteer(null);
     setUserFormState(emptyUserForm);
   }
 
@@ -523,6 +537,21 @@ export function AdminDashboard({
       email: user.email || "",
       career: careerOptions.includes(user.career) ? user.career : "Other",
       careerOther: careerOptions.includes(user.career) ? "" : user.career || ""
+    });
+    setUserModalOpen(true);
+  }
+
+  function openConvertVolunteer(volunteer) {
+    setEditingUser(null);
+    setConvertingVolunteer(volunteer);
+    const membersPortfolio = getPortfolioCategoryByIdOrLabel("members", portfolioChoices) || portfolioChoices[0];
+    setUserFormState({
+      ...emptyUserForm,
+      name: volunteer.name || "",
+      phoneNumber: volunteer.phoneNumber || "",
+      email: volunteer.email || "",
+      portfolioId: membersPortfolio?.id || portfolioChoices[0]?.id || "",
+      displayOrder: String(users.length + 1)
     });
     setUserModalOpen(true);
   }
@@ -639,6 +668,9 @@ export function AdminDashboard({
     });
 
     if (saved !== false) {
+      if (convertingVolunteer) {
+        await onConvertVolunteer(convertingVolunteer.id);
+      }
       resetUserModal();
     }
   }
@@ -958,6 +990,7 @@ export function AdminDashboard({
                 {activeSection === "programs" && "Manage programs and galleries"}
                 {activeSection === "gallery" && "Manage gallery content"}
                 {activeSection === "users" && "Manage users and team members"}
+                {activeSection === "volunteers" && "Review volunteer applications"}
                 {activeSection === "socials" && "Manage social media presence"}
               </h2>
               <p className="page-intro">
@@ -975,6 +1008,8 @@ export function AdminDashboard({
                   "Review the portfolio categories available to the team and how many users are assigned to each."}
                 {activeSection === "messages" &&
                   "Review incoming contact messages, mark them as read, and remove anything that is no longer needed."}
+                {activeSection === "volunteers" &&
+                  "Review people who applied to volunteer, then convert approved applicants into team members."}
                 {activeSection === "socials" &&
                   "Keep the home and socials pages current with the right links, handles, and platform descriptions."}
               </p>
@@ -1019,6 +1054,11 @@ export function AdminDashboard({
                     <span className="admin-stat-label">Messages</span>
                     <strong>{sortedMessages.length}</strong>
                     <p>{unreadMessagesCount} unread contact messages waiting in the inbox.</p>
+                  </article>
+                  <article className="admin-metric-card">
+                    <span className="admin-stat-label">Volunteers</span>
+                    <strong>{sortedVolunteers.length}</strong>
+                    <p>{pendingVolunteersCount} volunteer applications awaiting review.</p>
                   </article>
                   <article className="admin-metric-card">
                     <span className="admin-stat-label">Social channels</span>
@@ -1345,6 +1385,44 @@ export function AdminDashboard({
                 ))}
               </TableCard>
             ) : null}
+
+            {activeSection === "volunteers" ? (
+              <TableCard
+                title="Volunteer applications"
+                subtitle="Manage"
+                columns={["Name", "Location", "Phone", "Email", "Status", "Date", "Actions"]}
+                tableClassName="admin-message-table"
+              >
+                {renderTableRows(sortedVolunteers, (volunteer) => (
+                  <tr
+                    key={volunteer.id}
+                    className={volunteer.status === "converted" ? "admin-message-row read" : "admin-message-row unread"}
+                  >
+                    <td data-label="Name">{volunteer.name}</td>
+                    <td data-label="Location">{volunteer.location}</td>
+                    <td data-label="Phone">{volunteer.phoneNumber || "No phone provided"}</td>
+                    <td data-label="Email">{volunteer.email || "No email provided"}</td>
+                    <td data-label="Status">{volunteer.status === "converted" ? "Converted" : "New"}</td>
+                    <td data-label="Date">{formatEventDate(volunteer.createdAt)}</td>
+                    <td data-label="Actions">
+                      <div className="admin-table-actions">
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          onClick={() => openConvertVolunteer(volunteer)}
+                          disabled={volunteer.status === "converted"}
+                        >
+                          {volunteer.status === "converted" ? "Converted" : "Convert to member"}
+                        </button>
+                        <button type="button" className="btn danger" onClick={() => onDeleteVolunteer(volunteer.id)}>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </TableCard>
+            ) : null}
           </div>
         </div>
       </section>
@@ -1590,8 +1668,8 @@ export function AdminDashboard({
 
       {userModalOpen ? (
         <ModalShell
-          title={editingUser ? "Edit user" : "Create user"}
-          subtitle={editingUser ? "Editing" : "New content"}
+          title={convertingVolunteer ? "Convert volunteer to member" : editingUser ? "Edit user" : "Create user"}
+          subtitle={convertingVolunteer ? "Volunteer conversion" : editingUser ? "Editing" : "New content"}
           onClose={resetUserModal}
           footer={
             <>

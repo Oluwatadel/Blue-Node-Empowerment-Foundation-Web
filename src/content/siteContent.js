@@ -41,6 +41,7 @@ export const navItems = [
   { label: "Programs", href: "#programs", route: "programs" },
   { label: "Events", href: "#events", route: "events" },
   { label: "Impact", href: "#impact", route: "impact" },
+  { label: "Volunteer", href: "#volunteer", route: "volunteer" },
   { label: "Contact", href: "#contact", route: "contact" },
   { label: "Socials", href: "#socials", route: "socials" }
 ];
@@ -73,6 +74,24 @@ export const aboutCards = [
 export const defaultUsers = [];
 export const teamMembers = [];
 export const defaultVolunteers = [];
+
+export const volunteerBenefits = [
+  {
+    title: "Personal growth and skill development",
+    body:
+      "Hands-on outreach work builds practical skills in leadership, communication, and community organizing that carry into everyday life."
+  },
+  {
+    title: "Networking and building relationships",
+    body:
+      "Work alongside a team of changemakers and connect with partners, mentors, and friends who share your commitment to service."
+  },
+  {
+    title: "Improving your mental and physical health",
+    body:
+      "Giving back is proven to boost wellbeing, purpose, and connection while keeping you active in your community."
+  }
+];
 
 export const defaultPrograms = [
   {

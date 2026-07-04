@@ -11,11 +11,15 @@ import {
 } from "./content/siteContent.js";
 import {
   createMessage,
+  createVolunteer,
   deleteMessage,
+  deleteVolunteer,
   fetchMessages,
   fetchSiteContent,
+  fetchVolunteers,
   saveSiteContent,
-  updateMessage
+  updateMessage,
+  updateVolunteerStatus
 } from "./lib/contentApi.js";
 import {
   getActiveNavRoute,
@@ -44,7 +48,8 @@ import {
   ProgramGallery,
   ProgramsPage,
   TeamPage,
-  SocialsPage
+  SocialsPage,
+  VolunteerPage
 } from "./components/publicPages.jsx";
 
 const TEAM_PAGE_ACCESS_KEY = "bluenode-team-page-access";
@@ -72,6 +77,7 @@ export default function App() {
   const [socialLinks, setSocialLinks] = useState(() => readStoredSocialLinks());
   const [users, setUsers] = useState(() => readStoredUsers());
   const [messages, setMessages] = useState([]);
+  const [volunteers, setVolunteers] = useState([]);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => readAdminSession());
   const [adminError, setAdminError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -181,6 +187,31 @@ export default function App() {
     }
 
     loadMessages();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadVolunteers() {
+      try {
+        const content = await fetchVolunteers();
+        if (!active) {
+          return;
+        }
+
+        setVolunteers(Array.isArray(content.volunteers) ? content.volunteers : []);
+      } catch {
+        if (active) {
+          setVolunteers([]);
+        }
+      }
+    }
+
+    loadVolunteers();
 
     return () => {
       active = false;
@@ -492,6 +523,33 @@ export default function App() {
     setMessages((current) => current.filter((item) => item.id !== messageId));
   }
 
+  async function handleSubmitVolunteer(volunteer) {
+    const created = await createVolunteer(volunteer);
+    const nextVolunteer = created.volunteer;
+
+    if (nextVolunteer) {
+      setVolunteers((current) => [nextVolunteer, ...current.filter((item) => item.id !== nextVolunteer.id)]);
+    }
+
+    return nextVolunteer;
+  }
+
+  async function handleConvertVolunteer(volunteerId) {
+    const updated = await updateVolunteerStatus({ id: volunteerId, status: "converted" });
+    const nextVolunteer = updated.volunteer;
+
+    if (nextVolunteer) {
+      setVolunteers((current) => current.map((item) => (item.id === nextVolunteer.id ? nextVolunteer : item)));
+    }
+
+    return nextVolunteer;
+  }
+
+  async function handleDeleteVolunteer(volunteerId) {
+    await deleteVolunteer(volunteerId);
+    setVolunteers((current) => current.filter((item) => item.id !== volunteerId));
+  }
+
   function renderPage() {
     if (route === "program-gallery" && selectedProgram) {
       return <ProgramGallery program={selectedProgram} />;
@@ -525,6 +583,9 @@ export default function App() {
           messages={messages}
           onUpdateMessage={handleUpdateMessage}
           onDeleteMessage={handleDeleteMessage}
+          volunteers={volunteers}
+          onConvertVolunteer={handleConvertVolunteer}
+          onDeleteVolunteer={handleDeleteVolunteer}
           editingEvent={editingEvent}
           setEditingEvent={setEditingEvent}
           saveError={saveError}
@@ -557,6 +618,8 @@ export default function App() {
         return <ImpactPage />;
       case "contact":
         return <ContactPage onSubmitMessage={handleSubmitMessage} />;
+      case "volunteer":
+        return <VolunteerPage onSubmitVolunteer={handleSubmitVolunteer} />;
       case "socials":
         return <SocialsPage socialLinks={socialLinks} />;
       case "home":

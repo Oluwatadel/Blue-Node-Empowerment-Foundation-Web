@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { aboutCards, HOME_HERO_IMAGE_ID, quickLinks } from "../content/siteContent.js";
+import { aboutCards, HOME_HERO_IMAGE_ID, quickLinks, volunteerBenefits } from "../content/siteContent.js";
 import {
   getDriveThumbnailUrl,
   formatEventDate,
@@ -511,6 +511,149 @@ export function ContactPage({ onSubmitMessage }) {
           </button>
         </form>
       </div>
+    </PageShell>
+  );
+}
+
+export function VolunteerPage({ onSubmitVolunteer }) {
+  const [formState, setFormState] = useState({
+    name: "",
+    location: "",
+    phoneNumber: "",
+    email: ""
+  });
+  const [submissionState, setSubmissionState] = useState({ status: "idle", note: "" });
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSubmissionState({ status: "sending", note: "" });
+
+    try {
+      if (typeof onSubmitVolunteer !== "function") {
+        throw new Error("Volunteer applications are not available right now.");
+      }
+
+      await onSubmitVolunteer({
+        id: `volunteer-${Date.now()}`,
+        name: formState.name.trim(),
+        location: formState.location.trim(),
+        phoneNumber: formState.phoneNumber.trim(),
+        email: formState.email.trim(),
+        createdAt: new Date().toISOString()
+      });
+
+      setFormState({
+        name: "",
+        location: "",
+        phoneNumber: "",
+        email: ""
+      });
+      setSubmissionState({
+        status: "success",
+        note: "Thank you for applying. Our team will review your details and reach out soon."
+      });
+    } catch (error) {
+      setSubmissionState({
+        status: "error",
+        note: error instanceof Error ? error.message : "We could not submit your application right now."
+      });
+    }
+  }
+
+  return (
+    <PageShell
+      kicker="Volunteer with us"
+      title="Why volunteer with Blue Node Foundation?"
+      body="Join a community of changemakers supporting education, healthcare, relief, and empowerment programs across underserved communities."
+    >
+      <div className="about-grid">
+        {volunteerBenefits.map((benefit) => (
+          <article className="info-card" key={benefit.title}>
+            <h3>{benefit.title}</h3>
+            <p>{benefit.body}</p>
+          </article>
+        ))}
+      </div>
+
+      <section className="section-shell team-section">
+        <div className="section-heading">
+          <p className="section-kicker">Apply to volunteer</p>
+          <h2>Share your details and we'll be in touch.</h2>
+        </div>
+
+        <div className="contact-social">
+          <div className="contact-card">
+            <div className="donation-highlight">
+              <p className="donation-label">Volunteer with Blue Node</p>
+              <p className="donation-bank">We welcome volunteers for outreach, education, healthcare, and events.</p>
+              <p className="donation-account-name">Approved applicants are added to the team by our admins.</p>
+            </div>
+
+            <ul className="contact-list">
+              <li>
+                Questions?{" "}
+                <a className="contact-email-link" href="mailto:bluenodefoundation@gmail.com">
+                  bluenodefoundation@gmail.com
+                </a>
+              </li>
+              <li>
+                <a href="tel:+2348104963290">+234 810 496 3290</a>
+              </li>
+            </ul>
+          </div>
+
+          <form className="contact-form" onSubmit={handleSubmit}>
+            <label>
+              Full Name
+              <input
+                type="text"
+                placeholder="Enter full name"
+                value={formState.name}
+                onChange={(event) => setFormState((current) => ({ ...current, name: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Location
+              <input
+                type="text"
+                placeholder="City, State"
+                value={formState.location}
+                onChange={(event) => setFormState((current) => ({ ...current, location: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Phone Number
+              <input
+                type="tel"
+                placeholder="Enter phone number"
+                value={formState.phoneNumber}
+                onChange={(event) => setFormState((current) => ({ ...current, phoneNumber: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Email
+              <input
+                type="email"
+                placeholder="Enter email address"
+                value={formState.email}
+                onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))}
+                required
+              />
+            </label>
+            {submissionState.note ? (
+              <p className={submissionState.status === "error" ? "contact-form-status error" : "contact-form-status"}>
+                {submissionState.note}
+              </p>
+            ) : null}
+            <button type="submit" className="submit-btn">
+              {submissionState.status === "sending" ? "Submitting..." : "Apply to Volunteer"}
+            </button>
+          </form>
+        </div>
+      </section>
     </PageShell>
   );
 }

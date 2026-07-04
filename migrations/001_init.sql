@@ -58,3 +58,13 @@ CREATE TABLE IF NOT EXISTS contact_messages (
   created_at TEXT NOT NULL,
   read_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS volunteers (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  location TEXT NOT NULL,
+  phone_number TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'new',
+  created_at TEXT NOT NULL
+);

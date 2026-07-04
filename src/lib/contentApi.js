@@ -47,3 +47,37 @@ export async function deleteMessage(messageId) {
     body: JSON.stringify({ id: messageId })
   });
 }
+
+export async function fetchVolunteers() {
+  return requestJson("/api/volunteers");
+}
+
+export async function createVolunteer(volunteer) {
+  return requestJson("/api/volunteers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(volunteer)
+  });
+}
+
+export async function updateVolunteerStatus(volunteer) {
+  return requestJson("/api/volunteers", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(volunteer)
+  });
+}
+
+export async function deleteVolunteer(volunteerId) {
+  return requestJson("/api/volunteers", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ id: volunteerId })
+  });
+}
