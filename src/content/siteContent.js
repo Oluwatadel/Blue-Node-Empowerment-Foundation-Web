@@ -8,6 +8,7 @@ export const PORTFOLIOS_STORAGE_KEY = "bluenode-portfolios";
 export const VOLUNTEERS_STORAGE_KEY = "bluenode-volunteers";
 export const ADMIN_SESSION_KEY = "bluenode-admin-auth";
 export const HOME_HERO_IMAGE_ID = "1BPdzTrpajXolvDUkDgVBZmLxW7VLiqiG";
+export const VOLUNTEER_HERO_IMAGE_ID = "1lU4ZkR8GGl8MnZe1WmQcCVXLpHPbkVIg";
 export const socialIconOptions = ["facebook", "instagram", "x", "linkedin", "youtube", "tiktok", "whatsapp", "email"];
 export const defaultPortfolioCategories = [
   { id: "portfolio-members", label: "members", displayOrder: 1 },

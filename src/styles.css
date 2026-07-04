@@ -299,6 +299,98 @@ main,
   color: rgba(255, 255, 255, 0.9);
 }
 
+.volunteer-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 760px;
+  padding: clamp(28px, 6vw, 56px) 20px;
+  border-radius: 34px;
+  overflow: hidden;
+  background-color: #0f2f79;
+  background-image:
+    linear-gradient(rgba(10, 20, 40, 0.55), rgba(10, 20, 40, 0.55)),
+    var(--volunteer-hero-image);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.volunteer-hero-line {
+  position: absolute;
+  left: 50%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.volunteer-hero-line-top {
+  top: 0;
+  height: clamp(28px, 6vw, 56px);
+}
+
+.volunteer-hero-line-bottom {
+  bottom: 0;
+  height: clamp(28px, 6vw, 56px);
+}
+
+.volunteer-hero-circle {
+  position: relative;
+  width: min(560px, 88vw);
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: clamp(20px, 5vw, 44px);
+  text-align: center;
+  color: #fff;
+}
+
+.volunteer-hero-title {
+  margin: 0;
+  font-family: "Fraunces", serif;
+  line-height: 0.98;
+  font-size: clamp(2rem, 7vw, 3.6rem);
+}
+
+.volunteer-hero-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  text-align: left;
+}
+
+.volunteer-hero-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(0.85rem, 2vw, 1rem);
+  line-height: 1.4;
+}
+
+.volunteer-hero-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  font-size: 0.85rem;
+}
+
+.volunteer-hero-logo {
+  height: 42px;
+  width: auto;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -3417,6 +3509,10 @@ main,
     min-height: 540px;
   }
 
+  .volunteer-hero {
+    min-height: 620px;
+  }
+
   .impact-stats,
   .hero-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3680,6 +3776,18 @@ main,
   .quick-link-card,
   .program-preview-card {
     border-radius: 24px;
+  }
+
+  .volunteer-hero {
+    min-height: 560px;
+    border-radius: 24px;
+    padding: 20px 14px;
+  }
+
+  .volunteer-hero-circle {
+    width: min(420px, 92vw);
+    padding: 18px;
+    gap: 12px;
   }
 
   .hero h1 {

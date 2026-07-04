@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { aboutCards, HOME_HERO_IMAGE_ID, quickLinks, volunteerBenefits } from "../content/siteContent.js";
+import {
+  aboutCards,
+  HOME_HERO_IMAGE_ID,
+  quickLinks,
+  volunteerBenefits,
+  VOLUNTEER_HERO_IMAGE_ID
+} from "../content/siteContent.js";
 import {
   getDriveThumbnailUrl,
   formatEventDate,
@@ -560,20 +566,34 @@ export function VolunteerPage({ onSubmitVolunteer }) {
     }
   }
 
+  const heroBackground = getDriveThumbnailUrl(VOLUNTEER_HERO_IMAGE_ID, 1800);
+
   return (
-    <PageShell
-      kicker="Volunteer with us"
-      title="Why volunteer with Blue Node Foundation?"
-      body="Join a community of changemakers supporting education, healthcare, relief, and empowerment programs across underserved communities."
-    >
-      <div className="about-grid">
-        {volunteerBenefits.map((benefit) => (
-          <article className="info-card" key={benefit.title}>
-            <h3>{benefit.title}</h3>
-            <p>{benefit.body}</p>
-          </article>
-        ))}
-      </div>
+    <main className="page-main">
+      <section className="section-shell page-section">
+        <div className="volunteer-hero" style={{ "--volunteer-hero-image": `url("${heroBackground}")` }}>
+          <span className="volunteer-hero-line volunteer-hero-line-top" aria-hidden="true" />
+          <div className="volunteer-hero-circle">
+            <h1 className="volunteer-hero-title">
+              Why
+              <br />
+              Volunteer?
+            </h1>
+            <ul className="volunteer-hero-list">
+              {volunteerBenefits.map((benefit) => (
+                <li key={benefit.title}>
+                  <span className="volunteer-hero-arrow" aria-hidden="true">
+                    &#8594;
+                  </span>
+                  {benefit.title}
+                </li>
+              ))}
+            </ul>
+            <img src="/assets/images/logo.PNG" alt="Blue Node Empowerment Foundation" className="volunteer-hero-logo" />
+          </div>
+          <span className="volunteer-hero-line volunteer-hero-line-bottom" aria-hidden="true" />
+        </div>
+      </section>
 
       <section className="section-shell team-section">
         <div className="section-heading">
@@ -654,7 +674,7 @@ export function VolunteerPage({ onSubmitVolunteer }) {
           </form>
         </div>
       </section>
-    </PageShell>
+    </main>
   );
 }
 
