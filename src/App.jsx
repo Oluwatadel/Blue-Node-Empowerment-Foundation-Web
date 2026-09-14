@@ -310,6 +310,7 @@ export default function App() {
     return persistContent({
       events: nextEvents,
       programs,
+      portfolios,
       socialLinks,
       users
     });
@@ -322,6 +323,7 @@ export default function App() {
     return persistContent({
       events: nextEvents,
       programs,
+      portfolios,
       socialLinks,
       users
     });
@@ -336,6 +338,7 @@ export default function App() {
     return persistContent({
       events,
       programs: nextPrograms,
+      portfolios,
       socialLinks,
       users
     });
@@ -348,6 +351,7 @@ export default function App() {
     return persistContent({
       events,
       programs: nextPrograms,
+      portfolios,
       socialLinks,
       users
     });
@@ -362,6 +366,7 @@ export default function App() {
     return persistContent({
       events,
       programs,
+      portfolios,
       socialLinks: nextSocialLinks,
       users
     });
@@ -374,6 +379,7 @@ export default function App() {
     return persistContent({
       events,
       programs,
+      portfolios,
       socialLinks: nextSocialLinks,
       users
     });
@@ -388,6 +394,7 @@ export default function App() {
     return persistContent({
       events,
       programs,
+      portfolios,
       socialLinks,
       users: nextUsers
     });
@@ -400,6 +407,7 @@ export default function App() {
     return persistContent({
       events,
       programs,
+      portfolios,
       socialLinks,
       users: nextUsers
     });

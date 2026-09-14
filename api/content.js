@@ -115,13 +115,18 @@ async function replaceContent(pool, content) {
   const events = Array.isArray(content?.events) ? content.events : [];
   const programs = Array.isArray(content?.programs) ? content.programs : [];
   const socialLinks = Array.isArray(content?.socialLinks) ? content.socialLinks : [];
+  const keepExistingPortfolios = !Array.isArray(content?.portfolios);
   const portfolios = normalizePortfolioCategories(content?.portfolios);
   const users = Array.isArray(content?.users) ? content.users : [];
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
-    await client.query("TRUNCATE TABLE events, programs, social_links, users, portfolio_categories");
+    await client.query(
+      keepExistingPortfolios
+        ? "TRUNCATE TABLE events, programs, social_links, users"
+        : "TRUNCATE TABLE events, programs, social_links, users, portfolio_categories"
+    );
 
     for (const event of events) {
       await client.query(
@@ -160,14 +165,16 @@ async function replaceContent(pool, content) {
       );
     }
 
-    for (const portfolio of portfolios) {
-      await client.query(
-        `
-          INSERT INTO portfolio_categories (id, label, display_order)
-          VALUES ($1, $2, $3)
-        `,
-        [portfolio.id, portfolio.label, portfolio.displayOrder]
-      );
+    if (!keepExistingPortfolios) {
+      for (const portfolio of portfolios) {
+        await client.query(
+          `
+            INSERT INTO portfolio_categories (id, label, display_order)
+            VALUES ($1, $2, $3)
+          `,
+          [portfolio.id, portfolio.label, portfolio.displayOrder]
+        );
+      }
     }
 
     for (const userEntry of users) {
