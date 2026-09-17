@@ -334,47 +334,74 @@ export function getCardsPerView(width) {
   return 3;
 }
 
-export function getRouteFromHash(hash) {
-  if (!hash || hash === "#") {
+function normalizePath(pathname) {
+  const path = String(pathname || "/").split("?")[0].split("#")[0];
+  if (path.length > 1 && path.endsWith("/")) {
+    return path.slice(0, -1);
+  }
+
+  return path || "/";
+}
+
+export function getRouteFromPath(pathname) {
+  const path = normalizePath(pathname);
+
+  if (path === "/") {
     return "home";
   }
 
-  if (hash === "#team") {
+  if (path === "/team") {
     return "team";
   }
 
-  if (hash.startsWith("#program/")) {
+  if (path.startsWith("/program/")) {
     return "program-gallery";
   }
 
-  if (hash.startsWith("#event/")) {
+  if (path.startsWith("/event/")) {
     return "event-detail";
   }
 
-  if (hash === "#admin") {
+  if (path === "/admin") {
     return "admin";
   }
 
-  const route = hash.replace("#", "");
+  const route = path.replace(/^\//, "");
   return navItems.some((item) => item.route === route) ? route : "home";
 }
 
-export function getSelectedProgram(hash, programItems) {
-  if (!hash.startsWith("#program/")) {
+export function getSelectedProgram(pathname, programItems) {
+  const path = normalizePath(pathname);
+  if (!path.startsWith("/program/")) {
     return null;
   }
 
-  const slug = decodeURIComponent(hash.replace("#program/", ""));
+  const slug = decodeURIComponent(path.replace("/program/", ""));
   return programItems.find((program) => program.slug === slug) ?? null;
 }
 
-export function getSelectedEvent(hash, eventItems) {
-  if (!hash.startsWith("#event/")) {
+export function getSelectedEvent(pathname, eventItems) {
+  const path = normalizePath(pathname);
+  if (!path.startsWith("/event/")) {
     return null;
   }
 
-  const eventId = decodeURIComponent(hash.replace("#event/", ""));
+  const eventId = decodeURIComponent(path.replace("/event/", ""));
   return eventItems.find((event) => event.id === eventId) ?? null;
+}
+
+export function navigateTo(path) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const target = normalizePath(path);
+  if (window.location.pathname === target) {
+    return;
+  }
+
+  window.history.pushState({}, "", target);
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 export function getActiveNavRoute(route) {

@@ -37,21 +37,21 @@ export const careerOptions = [
 export const defaultEvents = [];
 
 export const navItems = [
-  { label: "Home", href: "#home", route: "home" },
-  { label: "About", href: "#about", route: "about" },
-  { label: "Programs", href: "#programs", route: "programs" },
-  { label: "Events", href: "#events", route: "events" },
-  { label: "Impact", href: "#impact", route: "impact" },
-  { label: "Volunteer", href: "#volunteer", route: "volunteer" },
-  { label: "Contact", href: "#contact", route: "contact" },
-  { label: "Socials", href: "#socials", route: "socials" }
+  { label: "Home", href: "/", route: "home" },
+  { label: "About", href: "/about", route: "about" },
+  { label: "Programs", href: "/programs", route: "programs" },
+  { label: "Events", href: "/events", route: "events" },
+  { label: "Impact", href: "/impact", route: "impact" },
+  { label: "Volunteer", href: "/volunteer", route: "volunteer" },
+  { label: "Contact", href: "/contact", route: "contact" },
+  { label: "Socials", href: "/socials", route: "socials" }
 ];
 
 export const quickLinks = [
-  { label: "About Blue Node", href: "#about", kicker: "Learn who we are" },
-  { label: "Our Programs", href: "#programs", kicker: "Explore outreach areas" },
-  { label: "Impact Stories", href: "#impact", kicker: "See the numbers" },
-  { label: "Contact Us", href: "#contact", kicker: "Partner or support" }
+  { label: "About Blue Node", href: "/about", kicker: "Learn who we are" },
+  { label: "Our Programs", href: "/programs", kicker: "Explore outreach areas" },
+  { label: "Impact Stories", href: "/impact", kicker: "See the numbers" },
+  { label: "Contact Us", href: "/contact", kicker: "Partner or support" }
 ];
 
 export const aboutCards = [
@@ -307,7 +307,7 @@ export const footerContent = {
   title: "Stay connected with Blue Node Foundation.",
   description: "Follow the foundation, share the work, and keep up with new outreach activities.",
   loginLabel: "Team login",
-  loginHref: "#admin",
+  loginHref: "/admin",
   copyrightPrefix: "Blue Node Foundation",
   credit: "Developed by Airis."
 };

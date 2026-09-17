@@ -117,7 +117,7 @@ function UpcomingEventsSection({ events }) {
           Featured events are managed from the admin dashboard and update automatically on this home page.
         </p>
         {featuredEvent ? (
-          <a className="event-summary-link" href="#events">
+          <a className="event-summary-link" href="/events">
             Open all events
           </a>
         ) : null}
@@ -126,30 +126,22 @@ function UpcomingEventsSection({ events }) {
       <div className="event-grid">
         {upcomingEvents.map((event) => (
           <article className="event-card" key={event.id}>
-            <a className="event-card-link" href={`#event/${event.id}`} aria-label={`Open ${event.title} event page`}>
+            <a className="event-card-fill" href={`/event/${event.id}`} aria-label={`Open ${event.title} event page`}>
               <ManagedImage
                 source={event.flyerImage || "/assets/images/Bluenode.jpg"}
                 alt={`${event.title} flyer`}
                 className="event-flyer"
               />
-            </a>
-            <div className="event-card-top">
-              <span className="event-badge">Next up</span>
-              <p className="event-date">{formatEventDate(event.dateTime)}</p>
-            </div>
-            <h3>
-              <a className="event-title-link" href={`#event/${event.id}`}>
-                {event.title}
-              </a>
-            </h3>
-            <p className="event-location">{event.location}</p>
-            <p className="event-description">{event.description}</p>
-            <div className="events-countdown-panel">
-              <p className="events-countdown-label">Countdown to this event</p>
-              <Countdown dateTime={event.dateTime} />
-            </div>
-            <a className="event-detail-link" href={`#event/${event.id}`}>
-              View event details
+              <div className="event-card-body">
+                <div className="event-card-top">
+                  <span className="event-badge">Next up</span>
+                  <p className="event-date">{formatEventDate(event.dateTime)}</p>
+                </div>
+                <h3>{event.title}</h3>
+                <p className="event-location">{event.location}</p>
+                <Countdown dateTime={event.dateTime} />
+                <span className="event-detail-link">View event details</span>
+              </div>
             </a>
           </article>
         ))}
@@ -205,10 +197,10 @@ export function HomePage({ events, programs, users, portfolios, isMobile, onOpen
              We combine compassion with action through education support, medical outreach, empowerment program and practial humanitarian care.
             </p>
             <div className="hero-actions">
-              <a className="btn primary" href="#programs">
+              <a className="btn primary" href="/programs">
                 Explore Programs
               </a>
-              <a className="btn secondary" href="#contact">
+              <a className="btn secondary" href="/contact">
                 Partner With Us
               </a>
             </div>
@@ -229,7 +221,7 @@ export function HomePage({ events, programs, users, portfolios, isMobile, onOpen
             isMobile={isMobile}
             ariaLabel="Featured programs"
             renderItem={(program) => (
-              <a className="program-preview-card" href={`#program/${program.slug}`} key={program.slug}>
+              <a className="program-preview-card" href={`/program/${program.slug}`} key={program.slug}>
                 <DriveImage fileId={program.imageId} alt={program.title} />
                 <div className="program-preview-copy">
                   <strong>{program.title}</strong>
@@ -347,12 +339,12 @@ export function ProgramsPage({ programs, cardsPerView, currentSlide, maxSlide, g
               <DriveImage fileId={program.imageId} alt={program.title} />
               <div className="program-copy">
                 <h3>
-                  <a className="program-link" href={`#program/${program.slug}`}>
+                  <a className="program-link" href={`/program/${program.slug}`}>
                     {program.title}
                   </a>
                 </h3>
                 <p>{program.body}</p>
-                <a className="program-gallery-link" href={`#program/${program.slug}`}>
+                <a className="program-gallery-link" href={`/program/${program.slug}`}>
                   View photo gallery
                 </a>
               </div>
@@ -762,7 +754,7 @@ export function EventsPage({ events }) {
                       <span className="events-glow-card" aria-hidden="true" />
                       <a
                         className="events-poster-frame"
-                        href={`#event/${event.id}`}
+                        href={`/event/${event.id}`}
                         aria-label={`Open ${event.title} event page`}
                       >
                         <ManagedImage
@@ -792,7 +784,7 @@ export function EventsPage({ events }) {
                         <button type="button" className="events-slider-button" onClick={showNextEvent}>
                           Next
                         </button>
-                        <a className="events-register-btn" href="#contact">
+                        <a className="events-register-btn" href="/contact">
                           Partner for this event
                         </a>
                       </div>
@@ -826,7 +818,7 @@ export function ProgramGallery({ program }) {
           <p className="gallery-text">{program.body}</p>
 
           <div className="gallery-actions">
-            <a className="btn primary" href="#programs">
+            <a className="btn primary" href="/programs">
               Back to Programs
             </a>
           </div>
@@ -872,10 +864,10 @@ export function EventDetailPage({ event }) {
           </div>
 
           <div className="gallery-actions">
-            <a className="btn primary" href="#home">
+            <a className="btn primary" href="/">
               Back to Home
             </a>
-            <a className="btn secondary" href="#contact">
+            <a className="btn secondary" href="/contact">
               Partner for this event
             </a>
           </div>

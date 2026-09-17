@@ -39,6 +39,16 @@ export function DriveImage({ fileId, alt, className }) {
   return <ManagedImage source={fileId} alt={alt} className={className} />;
 }
 
+export function SiteLoadingScreen() {
+  return (
+    <div className="site-loading-screen" role="status" aria-live="polite">
+      <div className="site-loading-mark">Blue Node</div>
+      <div className="site-loading-spinner" aria-hidden="true" />
+      <p className="site-loading-text">Loading the latest content…</p>
+    </div>
+  );
+}
+
 export function Countdown({ dateTime }) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -108,24 +118,41 @@ export function PageShell({ kicker, title, body, children }) {
   );
 }
 
-export function AutoPlayCarousel({ items, renderItem, className, isMobile, ariaLabel, autoPlayMs = 4500 }) {
+function chunkIntoPages(items, pageSize) {
+  const pages = [];
+  for (let i = 0; i < items.length; i += pageSize) {
+    pages.push(items.slice(i, i + pageSize));
+  }
+  return pages;
+}
+
+export function AutoPlayCarousel({
+  items,
+  renderItem,
+  className,
+  isMobile,
+  ariaLabel,
+  autoPlayMs = 4500,
+  mobileItemsPerSlide = 2
+}) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const pages = isMobile ? chunkIntoPages(items, mobileItemsPerSlide) : [];
 
   useEffect(() => {
     setActiveIndex(0);
-  }, [items.length, isMobile]);
+  }, [items.length, isMobile, mobileItemsPerSlide]);
 
   useEffect(() => {
-    if (!isMobile || items.length <= 1) {
+    if (!isMobile || pages.length <= 1) {
       return undefined;
     }
 
     const timer = window.setInterval(() => {
-      setActiveIndex((currentIndex) => (currentIndex >= items.length - 1 ? 0 : currentIndex + 1));
+      setActiveIndex((currentIndex) => (currentIndex >= pages.length - 1 ? 0 : currentIndex + 1));
     }, autoPlayMs);
 
     return () => window.clearInterval(timer);
-  }, [autoPlayMs, isMobile, items.length]);
+  }, [autoPlayMs, isMobile, pages.length]);
 
   if (!isMobile) {
     return <div className={className}>{items.map((item, index) => renderItem(item, index))}</div>;
@@ -140,23 +167,25 @@ export function AutoPlayCarousel({ items, renderItem, className, isMobile, ariaL
             transform: `translateX(-${activeIndex * 100}%)`
           }}
         >
-          {items.map((item, index) => (
-            <div className="mobile-carousel-slide" key={item.id || item.slug || item.label || item.name || index}>
-              {renderItem(item, index)}
+          {pages.map((page, pageIndex) => (
+            <div className="mobile-carousel-slide" key={page[0]?.id || page[0]?.slug || page[0]?.label || page[0]?.name || pageIndex}>
+              <div className="mobile-carousel-page">
+                {page.map((item, itemIndex) => renderItem(item, pageIndex * mobileItemsPerSlide + itemIndex))}
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {items.length > 1 ? (
+      {pages.length > 1 ? (
         <div className="mobile-carousel-dots" aria-label={`${ariaLabel} navigation`}>
-          {items.map((item, index) => (
+          {pages.map((page, pageIndex) => (
             <button
-              key={item.id || item.slug || item.label || item.name || index}
+              key={page[0]?.id || page[0]?.slug || page[0]?.label || page[0]?.name || pageIndex}
               type="button"
-              className={index === activeIndex ? "mobile-carousel-dot active" : "mobile-carousel-dot"}
-              aria-label={`Show slide ${index + 1}`}
-              onClick={() => setActiveIndex(index)}
+              className={pageIndex === activeIndex ? "mobile-carousel-dot active" : "mobile-carousel-dot"}
+              aria-label={`Show slide ${pageIndex + 1}`}
+              onClick={() => setActiveIndex(pageIndex)}
             />
           ))}
         </div>
@@ -187,7 +216,7 @@ export function SocialIcon({ type }) {
     youtube: (
       <>
         <path d="M24 9.5c-.2-1.6-1.4-2.8-3-3C18.8 6.2 16.3 6 14 6s-4.8.2-7 .5c-1.6.2-2.8 1.4-3 3-.3 1.8-.3 3.2 0 5 .2 1.6 1.4 2.8 3 3 2.2.3 4.7.5 7 .5s4.8-.2 7-.5c1.6-.2 2.8-1.4 3-3 .3-1.8.3-3.2 0-5Z" />
-        <path d="M12 10.5v7l6-3.5Z" fill="#1d63d8" />
+        <path d="M12 10.5v7l6-3.5Z" fill="var(--primary)" />
       </>
     ),
     tiktok: <path d="M16.8 5c.4 1.9 1.5 3.2 3.2 4v2.9c-1.4-.1-2.6-.5-3.8-1.3v6.1a5.7 5.7 0 1 1-5.7-5.7c.4 0 .8 0 1.2.1v3c-.4-.1-.7-.2-1.1-.2a2.6 2.6 0 1 0 2.6 2.6V5Z" />,
@@ -196,14 +225,14 @@ export function SocialIcon({ type }) {
         <path d="M14 4.5a9.4 9.4 0 0 0-8 14.4L5 24l5.2-1a9.5 9.5 0 1 0 3.8-18.5Z" />
         <path
           d="M10.2 9.6c.2-.5.5-.5.8-.5h.7c.2 0 .5 0 .7.5l.6 1.4c.1.3.1.5-.1.8l-.5.8c-.1.1-.2.3 0 .5.4.8 1.3 2 2.8 2.7.2.1.4.1.5 0l.8-.9c.2-.2.5-.2.7-.1l1.4.6c.4.2.5.4.5.7v.7c0 .3 0 .6-.5.8-.5.2-1.1.4-1.8.3-1-.1-2.2-.5-3.7-1.9-1.8-1.6-2.5-3.1-2.8-4.2-.2-.7-.1-1.3 0-1.8Z"
-          fill="#1d63d8"
+          fill="var(--primary)"
         />
       </>
     ),
     email: (
       <>
         <rect x="4" y="6" width="20" height="14" rx="3" />
-        <path d="m6.5 8.5 7.5 5.5 7.5-5.5" fill="none" stroke="#1d63d8" strokeWidth="2" />
+        <path d="m6.5 8.5 7.5 5.5 7.5-5.5" fill="none" stroke="var(--primary)" strokeWidth="2" />
       </>
     )
   };

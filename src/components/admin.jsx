@@ -32,7 +32,7 @@ function ModalShell({ title, subtitle, onClose, children, footer }) {
   );
 }
 
-function TableCard({ title, subtitle, createLabel, onCreate, columns, children, tableClassName = "" }) {
+function TableCard({ title, subtitle, createLabel, onCreate, columns, children, tableClassName = "", headerActions = null }) {
   return (
     <article className="admin-content-card admin-table-card">
       <div className="admin-section-head">
@@ -40,11 +40,14 @@ function TableCard({ title, subtitle, createLabel, onCreate, columns, children, 
           <p className="admin-card-label">{subtitle}</p>
           <h3>{title}</h3>
         </div>
-        {createLabel && onCreate ? (
-          <button type="button" className="btn secondary" onClick={onCreate}>
-            {createLabel}
-          </button>
-        ) : null}
+        <div className="admin-section-head-actions">
+          {headerActions}
+          {createLabel && onCreate ? (
+            <button type="button" className="btn secondary" onClick={onCreate}>
+              {createLabel}
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="admin-table-wrap">
         <table className={tableClassName ? `admin-table ${tableClassName}` : "admin-table"}>
@@ -199,9 +202,10 @@ export function AdminDashboard({
   onDeleteSocialLink,
   onSaveUser,
   onDeleteUser,
+  onReorderUsers,
   onSavePortfolio,
   onDeletePortfolio,
-  onMovePortfolio,
+  onReorderPortfolios,
   onUpdateMessage,
   onDeleteMessage,
   onConvertVolunteer,
@@ -277,7 +281,39 @@ export function AdminDashboard({
   const [galleryModalOpen, setGalleryModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [pendingUserOrder, setPendingUserOrder] = useState(null);
+  const [isSavingUserOrder, setIsSavingUserOrder] = useState(false);
+  const [userSaveMessage, setUserSaveMessage] = useState("");
+  const [pendingPortfolioOrder, setPendingPortfolioOrder] = useState(null);
+  const [isSavingPortfolioOrder, setIsSavingPortfolioOrder] = useState(false);
+  const [portfolioSaveMessage, setPortfolioSaveMessage] = useState("");
   const profileMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!userSaveMessage) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => setUserSaveMessage(""), 4000);
+    return () => window.clearTimeout(timer);
+  }, [userSaveMessage]);
+
+  useEffect(() => {
+    if (!portfolioSaveMessage) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => setPortfolioSaveMessage(""), 4000);
+    return () => window.clearTimeout(timer);
+  }, [portfolioSaveMessage]);
+
+  useEffect(() => {
+    setPendingPortfolioOrder(null);
+  }, [portfolios]);
+
+  useEffect(() => {
+    setPendingUserOrder(null);
+  }, [users]);
 
   const sortedEvents = useMemo(
     () => [...events].sort((left, right) => new Date(left.dateTime) - new Date(right.dateTime)),
@@ -310,7 +346,7 @@ export function AdminDashboard({
     [volunteers]
   );
   const pendingVolunteersCount = sortedVolunteers.filter((volunteer) => volunteer.status !== "converted").length;
-  const portfolioStats = portfolioChoices.map((portfolio) => ({
+  const portfolioStats = sortPortfolioCategories(pendingPortfolioOrder ?? portfolioChoices).map((portfolio) => ({
     ...portfolio,
     count: users.filter((entry) => {
       const user = entry.user ?? entry;
@@ -355,7 +391,7 @@ export function AdminDashboard({
 
   useEffect(() => {
     if (editingUser) {
-      const user = editingUser.user ?? editingUser;
+      const user = editingUser.data ?? editingUser.user ?? editingUser;
       const matchedPortfolio =
         getPortfolioCategoryByIdOrLabel(user.portfolioId || user.portfolio, portfolioChoices) || portfolioChoices[0];
       setUserFormState({
@@ -522,7 +558,7 @@ export function AdminDashboard({
   }
 
   function openUserEdit(entry) {
-    const user = entry.user ?? entry;
+    const user = entry.data ?? entry.user ?? entry;
     setEditingUser(entry);
     setUserFormState({
       id: entry.id || "",
@@ -672,6 +708,7 @@ export function AdminDashboard({
         await onConvertVolunteer(convertingVolunteer.id);
       }
       resetUserModal();
+      setUserSaveMessage(`${userFormState.name || "Executive"} was saved successfully.`);
     }
   }
 
@@ -709,7 +746,7 @@ export function AdminDashboard({
         : kind === "program"
           ? item.slug
           : kind === "user"
-            ? item.id || item.user?.name || item.name
+            ? item.id || item.data?.name || item.user?.name || item.name
             : kind === "portfolio"
               ? item.id
             : item.id;
@@ -719,7 +756,7 @@ export function AdminDashboard({
         : kind === "program"
           ? item.title
           : kind === "user"
-            ? item.user?.name || item.name
+            ? item.data?.name || item.user?.name || item.name
             : kind === "portfolio"
               ? item.label
             : item.name;
@@ -772,15 +809,101 @@ export function AdminDashboard({
     }
   }
 
-  const userRows = sortTeamEntries(users, portfolioChoices).map((entry) => ({
-    id: entry.id || entry.user?.name || entry.name,
-    data: {
-      ...(entry.user ?? entry),
-      portfolio: normalizePortfolioValue((entry.user ?? entry).portfolio),
-      portfolioId: (entry.user ?? entry).portfolioId || "",
-      displayOrder: normalizeTeamDisplayOrder((entry.user ?? entry).displayOrder ?? entry.displayOrder)
+  const effectiveUsers = pendingUserOrder ?? users;
+  const sortedUserEntries = sortTeamEntries(effectiveUsers, portfolioChoices);
+  const userRows = sortedUserEntries.map((entry, index) => {
+    const user = entry.user ?? entry;
+    const previousUser = sortedUserEntries[index - 1] ? sortedUserEntries[index - 1].user ?? sortedUserEntries[index - 1] : null;
+    const nextUser = sortedUserEntries[index + 1] ? sortedUserEntries[index + 1].user ?? sortedUserEntries[index + 1] : null;
+
+    return {
+      id: entry.id || user.name,
+      canMoveUp: Boolean(previousUser) && (previousUser.portfolioId || "") === (user.portfolioId || ""),
+      canMoveDown: Boolean(nextUser) && (nextUser.portfolioId || "") === (user.portfolioId || ""),
+      data: {
+        ...user,
+        portfolio: normalizePortfolioValue(user.portfolio),
+        portfolioId: user.portfolioId || "",
+        displayOrder: normalizeTeamDisplayOrder(user.displayOrder ?? entry.displayOrder)
+      }
+    };
+  });
+
+  function handleMoveUser(userId, direction) {
+    const currentIndex = sortedUserEntries.findIndex((entry) => (entry.id || (entry.user ?? entry).name) === userId);
+    const targetIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= sortedUserEntries.length) {
+      return;
     }
-  }));
+
+    const currentUser = sortedUserEntries[currentIndex].user ?? sortedUserEntries[currentIndex];
+    const targetUser = sortedUserEntries[targetIndex].user ?? sortedUserEntries[targetIndex];
+
+    if ((currentUser.portfolioId || "") !== (targetUser.portfolioId || "")) {
+      return;
+    }
+
+    const nextEntries = sortedUserEntries.map((entry) => ({ ...entry, user: { ...(entry.user ?? entry) } }));
+    const currentItem = nextEntries[currentIndex].user;
+    const targetItem = nextEntries[targetIndex].user;
+    const swapOrder = currentItem.displayOrder;
+    currentItem.displayOrder = targetItem.displayOrder;
+    targetItem.displayOrder = swapOrder;
+
+    setPendingUserOrder(nextEntries);
+  }
+
+  async function handleSaveUserOrder() {
+    if (!pendingUserOrder || !onReorderUsers) {
+      return;
+    }
+
+    setIsSavingUserOrder(true);
+    try {
+      const saved = await onReorderUsers(pendingUserOrder);
+      if (saved !== false) {
+        setUserSaveMessage("Executive order was saved successfully.");
+      }
+    } finally {
+      setIsSavingUserOrder(false);
+    }
+  }
+
+  function handleMovePortfolioLocal(portfolioId, direction) {
+    const currentPortfolios = sortPortfolioCategories(pendingPortfolioOrder ?? portfolioChoices);
+    const currentIndex = currentPortfolios.findIndex((item) => item.id === portfolioId);
+    const targetIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= currentPortfolios.length) {
+      return;
+    }
+
+    const nextPortfolios = currentPortfolios.map((item) => ({ ...item }));
+    const currentItem = nextPortfolios[currentIndex];
+    const targetItem = nextPortfolios[targetIndex];
+    const swapOrder = currentItem.displayOrder;
+    currentItem.displayOrder = targetItem.displayOrder;
+    targetItem.displayOrder = swapOrder;
+
+    setPendingPortfolioOrder(nextPortfolios);
+  }
+
+  async function handleSavePortfolioOrder() {
+    if (!pendingPortfolioOrder || !onReorderPortfolios) {
+      return;
+    }
+
+    setIsSavingPortfolioOrder(true);
+    try {
+      const saved = await onReorderPortfolios(pendingPortfolioOrder);
+      if (saved !== false) {
+        setPortfolioSaveMessage("Portfolio order was saved successfully.");
+      }
+    } finally {
+      setIsSavingPortfolioOrder(false);
+    }
+  }
 
   const programsWithGallery = programs.map((program) => ({
     ...program,
@@ -1237,13 +1360,27 @@ export function AdminDashboard({
             ) : null}
 
             {activeSection === "users" ? (
-              <TableCard
+              <>
+                {userSaveMessage ? <p className="admin-save-confirmation">{userSaveMessage}</p> : null}
+                <TableCard
                 title="User management"
                 subtitle="Manage"
                 createLabel="Create user"
                 onCreate={openUserCreate}
                 columns={["Name", "Portfolio", "Order", "Email", "Actions"]}
                 tableClassName="admin-user-table"
+                headerActions={
+                  pendingUserOrder ? (
+                    <button
+                      type="button"
+                      className="btn primary admin-save-order-btn"
+                      onClick={handleSaveUserOrder}
+                      disabled={isSavingUserOrder}
+                    >
+                      {isSavingUserOrder ? "Saving order…" : "Save order"}
+                    </button>
+                  ) : null
+                }
               >
                 {renderTableRows(userRows, (entry) => (
                   <tr key={entry.id}>
@@ -1262,6 +1399,26 @@ export function AdminDashboard({
                     <td data-label="Email">{entry.data.email || "No email assigned"}</td>
                     <td data-label="Actions">
                       <div className="admin-table-actions">
+                        <span className="admin-move-buttons">
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => handleMoveUser(entry.id, -1)}
+                            disabled={!entry.canMoveUp}
+                            aria-label="Move executive up"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => handleMoveUser(entry.id, 1)}
+                            disabled={!entry.canMoveDown}
+                            aria-label="Move executive down"
+                          >
+                            ↓
+                          </button>
+                        </span>
                         <button type="button" className="btn secondary" onClick={() => openUserEdit(entry)}>
                           Edit
                         </button>
@@ -1273,15 +1430,30 @@ export function AdminDashboard({
                   </tr>
                 ))}
               </TableCard>
+              </>
             ) : null}
 
             {activeSection === "portfolios" ? (
-              <TableCard
+              <>
+                {portfolioSaveMessage ? <p className="admin-save-confirmation">{portfolioSaveMessage}</p> : null}
+                <TableCard
                 title="Portfolio management"
                 subtitle="Manage"
                 createLabel="Create portfolio"
                 onCreate={openPortfolioCreate}
                 columns={["Portfolio", "Users", "Status", "Actions"]}
+                headerActions={
+                  pendingPortfolioOrder ? (
+                    <button
+                      type="button"
+                      className="btn primary admin-save-order-btn"
+                      onClick={handleSavePortfolioOrder}
+                      disabled={isSavingPortfolioOrder}
+                    >
+                      {isSavingPortfolioOrder ? "Saving order…" : "Save order"}
+                    </button>
+                  ) : null
+                }
               >
                 {renderTableRows(portfolioStats, (item, index) => (
                   <tr key={item.id}>
@@ -1290,24 +1462,26 @@ export function AdminDashboard({
                     <td data-label="Status">{item.count > 0 ? "Active" : "Unused"}</td>
                     <td data-label="Actions">
                       <div className="admin-table-actions">
-                        <button
-                          type="button"
-                          className="btn secondary"
-                          onClick={() => onMovePortfolio(item.id, -1)}
-                          disabled={index === 0}
-                          aria-label="Move portfolio up"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          className="btn secondary"
-                          onClick={() => onMovePortfolio(item.id, 1)}
-                          disabled={index === portfolioStats.length - 1}
-                          aria-label="Move portfolio down"
-                        >
-                          ↓
-                        </button>
+                        <span className="admin-move-buttons">
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => handleMovePortfolioLocal(item.id, -1)}
+                            disabled={index === 0}
+                            aria-label="Move portfolio up"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => handleMovePortfolioLocal(item.id, 1)}
+                            disabled={index === portfolioStats.length - 1}
+                            aria-label="Move portfolio down"
+                          >
+                            ↓
+                          </button>
+                        </span>
                         <button type="button" className="btn secondary" onClick={() => openPortfolioEdit(item)}>
                           Edit
                         </button>
@@ -1319,6 +1493,7 @@ export function AdminDashboard({
                   </tr>
                 ))}
               </TableCard>
+              </>
             ) : null}
 
             {activeSection === "socials" ? (

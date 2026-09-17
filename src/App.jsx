@@ -24,9 +24,10 @@ import {
 import {
   getActiveNavRoute,
   getCardsPerView,
-  getRouteFromHash,
+  getRouteFromPath,
   getSelectedEvent,
   getSelectedProgram,
+  navigateTo,
   readAdminSession,
   readStoredEvents,
   readStoredPrograms,
@@ -37,6 +38,8 @@ import {
   normalizeUserEntries
 } from "./lib/siteUtils.js";
 import { SiteHeader, SocialFooter } from "./components/layout.jsx";
+import { SiteLoadingScreen } from "./components/shared.jsx";
+import { ChatWidget } from "./components/chatbot.jsx";
 import { AdminDashboard, AdminLogin } from "./components/admin.jsx";
 import {
   AboutPage,
@@ -60,7 +63,7 @@ export default function App() {
       return "home";
     }
 
-    return getRouteFromHash(window.location.hash);
+    return getRouteFromPath(window.location.pathname);
   });
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [cardsPerView, setCardsPerView] = useState(() => {
@@ -85,8 +88,8 @@ export default function App() {
   const [contentSource, setContentSource] = useState("local");
   const [isContentReady, setIsContentReady] = useState(false);
 
-  const selectedProgram = useMemo(() => getSelectedProgram(window.location.hash, programs), [programs, route]);
-  const selectedEvent = useMemo(() => getSelectedEvent(window.location.hash, events), [events, route]);
+  const selectedProgram = useMemo(() => getSelectedProgram(window.location.pathname, programs), [programs, route]);
+  const selectedEvent = useMemo(() => getSelectedEvent(window.location.pathname, events), [events, route]);
   const activeNavRoute = getActiveNavRoute(route);
   const isAdminRoute = route === "admin";
   const isMobile = cardsPerView === 1;
@@ -94,22 +97,48 @@ export default function App() {
   useEffect(() => {
     function handleResize() {
       setCardsPerView(getCardsPerView(window.innerWidth));
-      if (window.innerWidth > 760) {
+      if (window.innerWidth > 1280) {
         setMobileNavOpen(false);
       }
     }
 
-    function handleHashChange() {
-      setRoute(getRouteFromHash(window.location.hash));
+    function handlePathChange() {
+      setRoute(getRouteFromPath(window.location.pathname));
       setMobileNavOpen(false);
     }
 
+    function handleDocumentClick(event) {
+      if (event.defaultPrevented || event.button !== 0) {
+        return;
+      }
+
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+
+      const link = event.target.closest?.("a[href]");
+      if (!link || link.target || link.hasAttribute("download")) {
+        return;
+      }
+
+      const href = link.getAttribute("href");
+      if (!href || !href.startsWith("/") || href.startsWith("//")) {
+        return;
+      }
+
+      event.preventDefault();
+      navigateTo(href);
+      window.scrollTo({ top: 0 });
+    }
+
     window.addEventListener("resize", handleResize);
-    window.addEventListener("hashchange", handleHashChange);
+    window.addEventListener("popstate", handlePathChange);
+    document.addEventListener("click", handleDocumentClick);
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      window.removeEventListener("hashchange", handleHashChange);
+      window.removeEventListener("popstate", handlePathChange);
+      document.removeEventListener("click", handleDocumentClick);
     };
   }, []);
 
@@ -120,7 +149,7 @@ export default function App() {
 
     const canAccessTeamPage = window.sessionStorage.getItem(TEAM_PAGE_ACCESS_KEY) === "true";
     if (!canAccessTeamPage) {
-      window.location.hash = "#home";
+      navigateTo("/");
       setRoute("home");
     }
   }, [route]);
@@ -281,7 +310,7 @@ export default function App() {
 
   function openTeamPage() {
     window.sessionStorage.setItem(TEAM_PAGE_ACCESS_KEY, "true");
-    window.location.hash = "#team";
+    navigateTo("/team");
   }
 
   function handleAdminLogin({ username, password }) {
@@ -413,6 +442,17 @@ export default function App() {
     });
   }
 
+  async function handleReorderUsers(nextUsers) {
+    setUsers(nextUsers);
+    return persistContent({
+      events,
+      programs,
+      portfolios,
+      socialLinks,
+      users: nextUsers
+    });
+  }
+
   async function handleSavePortfolio(portfolioEntry) {
     const nextPortfolios = portfolios.some((item) => item.id === portfolioEntry.id)
       ? portfolios.map((item) => (item.id === portfolioEntry.id ? portfolioEntry : item))
@@ -429,32 +469,7 @@ export default function App() {
     });
   }
 
-  async function handleMovePortfolio(portfolioId, direction) {
-    const sortedPortfolios = [...portfolios].sort((left, right) => {
-      const leftOrder = Number.parseInt(String(left.displayOrder ?? 0), 10);
-      const rightOrder = Number.parseInt(String(right.displayOrder ?? 0), 10);
-
-      if (leftOrder !== rightOrder) {
-        return leftOrder - rightOrder;
-      }
-
-      return String(left.label || "").localeCompare(String(right.label || ""));
-    });
-
-    const currentIndex = sortedPortfolios.findIndex((item) => item.id === portfolioId);
-    const targetIndex = currentIndex + direction;
-
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= sortedPortfolios.length) {
-      return false;
-    }
-
-    const nextPortfolios = sortedPortfolios.map((item) => ({ ...item }));
-    const currentItem = nextPortfolios[currentIndex];
-    const targetItem = nextPortfolios[targetIndex];
-    const currentOrder = currentItem.displayOrder;
-    currentItem.displayOrder = targetItem.displayOrder;
-    targetItem.displayOrder = currentOrder;
-
+  async function handleReorderPortfolios(nextPortfolios) {
     const normalizedPortfolios = normalizePortfolioCategories(nextPortfolios);
     setPortfolios(normalizedPortfolios);
 
@@ -584,10 +599,11 @@ export default function App() {
           onDeleteSocialLink={handleDeleteSocialLink}
           onSaveUser={handleSaveUser}
           onDeleteUser={handleDeleteUser}
+          onReorderUsers={handleReorderUsers}
           portfolios={portfolios}
           onSavePortfolio={handleSavePortfolio}
           onDeletePortfolio={handleDeletePortfolio}
-          onMovePortfolio={handleMovePortfolio}
+          onReorderPortfolios={handleReorderPortfolios}
           messages={messages}
           onUpdateMessage={handleUpdateMessage}
           onDeleteMessage={handleDeleteMessage}
@@ -636,6 +652,10 @@ export default function App() {
     }
   }
 
+  if (!isContentReady && !isAdminRoute) {
+    return <SiteLoadingScreen />;
+  }
+
   return (
     <div className={`page page-${route} ${isAdminRoute ? "page-admin" : "page-public"}`}>
       <SiteHeader
@@ -646,6 +666,7 @@ export default function App() {
       />
       {renderPage()}
       {isAdminRoute ? null : <SocialFooter socialLinks={socialLinks} />}
+      {isAdminRoute ? null : <ChatWidget programs={programs} events={events} socialLinks={socialLinks} />}
     </div>
   );
 }

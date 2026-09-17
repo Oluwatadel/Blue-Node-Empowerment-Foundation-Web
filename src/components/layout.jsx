@@ -9,7 +9,7 @@ export function SiteHeader({ activeNavRoute, mobileNavOpen, onToggleMobileNav, i
 
   return (
     <header className="top-nav">
-      <a className="brand" href="#home" aria-label="Blue Node Foundation home">
+      <a className="brand" href="/" aria-label="Blue Node Foundation home">
         <img src="/assets/images/logo.PNG" alt="Blue Node Foundation" className="logo-image" />
       </a>
 
@@ -28,11 +28,14 @@ export function SiteHeader({ activeNavRoute, mobileNavOpen, onToggleMobileNav, i
             {item.label}
           </a>
         ))}
+        <a className="donate-mini nav-donate-mobile" href="/contact">
+          Donate
+        </a>
       </nav>
 
       <div className="nav-actions">
         <div className="nav-shortcuts">
-          <a className="donate-mini nav-donate" href="#contact">
+          <a className="donate-mini nav-donate" href="/contact">
             Donate
           </a>
         </div>
