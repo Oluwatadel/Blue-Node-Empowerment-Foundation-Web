@@ -4,6 +4,7 @@ import { aboutCards, impactStats, volunteerBenefits } from "../content/siteConte
 const GREETING =
   "Hi! I'm the Blue Node assistant. Ask me about our programs, upcoming events, volunteering, or donating — or tap a topic below.";
 const DEFAULT_WHATSAPP = "https://wa.me/2348104963290";
+const AUTO_OPEN_DELAY_MS = 1200;
 
 function findWhatsAppLink(socialLinks) {
   const match = (socialLinks || []).find((link) => link.icon === "whatsapp");
@@ -164,6 +165,12 @@ export function ChatWidget({ programs, events, socialLinks }) {
   const listRef = useRef(null);
   const topics = useMemo(() => buildTopics({ programs, events, socialLinks }), [programs, events, socialLinks]);
   const waLink = findWhatsAppLink(socialLinks);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsOpen(true), AUTO_OPEN_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (listRef.current) {
