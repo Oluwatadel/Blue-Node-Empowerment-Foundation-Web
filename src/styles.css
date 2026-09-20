@@ -5027,19 +5027,170 @@ body {
   flex-shrink: 0;
 }
 
+.chat-panel-heading {
+  min-width: 0;
+}
+
+.chat-bubble {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 1200px) {
+  .chat-panel {
+    width: 400px;
+    height: min(600px, calc(100vh - 140px));
+    height: min(600px, calc(100dvh - 140px));
+  }
+}
+
+/* Phones and small tablets: half-width, half-height panel, one-row scrolling topic chips. */
 @media (max-width: 520px) {
   .chat-widget {
-    right: 14px;
-    bottom: 14px;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
+    gap: 12px;
   }
 
   .chat-panel {
-    width: calc(100vw - 28px);
-    height: min(72vh, 560px);
+    width: 50vw;
+    height: 50vh;
+    height: 50dvh;
   }
 
   .chat-toggle {
     width: 54px;
     height: 54px;
+  }
+
+  /* The panel is only half the screen, so everything inside is compacted to leave room for messages. */
+  .chat-panel-header {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .chat-panel-heading strong {
+    font-size: 0.9rem;
+    line-height: 1.2;
+  }
+
+  .chat-panel-heading span {
+    display: none;
+  }
+
+  .chat-close {
+    width: 26px;
+    height: 26px;
+    font-size: 1.1rem;
+  }
+
+  .chat-messages {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .chat-bubble {
+    max-width: 94%;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
+  .chat-cta {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.74rem;
+  }
+
+  .chat-topics {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 6px 8px;
+    gap: 6px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .chat-topics::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chat-topic-chip {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.72rem;
+  }
+
+  .chat-input-row {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  /* 16px stops iOS Safari from zooming the page when the input is focused. */
+  .chat-input-row input {
+    padding: 0.5rem 0.7rem;
+    font-size: 1rem;
+  }
+
+  .chat-input-row button {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .chat-widget {
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .chat-bubble {
+    font-size: 0.76rem;
+  }
+}
+
+/* Short screens (phones in landscape, small laptop windows): keep the panel inside the viewport. */
+@media (max-height: 560px) {
+  .chat-panel {
+    height: calc(100vh - 100px);
+    height: calc(100dvh - 100px);
+  }
+
+  .chat-panel-header {
+    padding: 8px 14px;
+  }
+
+  .chat-panel-heading span {
+    display: none;
+  }
+
+  .chat-messages {
+    padding: 10px 14px;
+  }
+
+  .chat-topics {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 6px 14px;
+    scrollbar-width: none;
+  }
+
+  .chat-topics::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chat-topic-chip {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .chat-input-row {
+    padding: 8px 14px;
+  }
+
+  .chat-input-row input,
+  .chat-input-row button {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
   }
 }
