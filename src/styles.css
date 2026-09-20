@@ -4244,17 +4244,17 @@ main,
 
 @media (max-width: 520px) {
   .top-nav {
-    grid-template-columns: 1fr;
-    justify-items: stretch;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
   }
 
-  .brand,
-  .nav-actions {
-    justify-self: stretch;
+  .brand {
+    justify-self: start;
   }
 
   .nav-actions {
-    justify-content: space-between;
+    justify-self: end;
+    justify-content: flex-end;
   }
 
   .nav-shortcuts {
