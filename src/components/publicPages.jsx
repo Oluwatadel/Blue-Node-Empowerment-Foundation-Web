@@ -451,8 +451,8 @@ export function ContactPage({ onSubmitMessage }) {
         <div className="contact-card">
           <div className="donation-highlight">
             <p className="donation-label">Donate to Blue Node Foundation</p>
-            <strong className="donation-account-number">0110523810</strong>
-            <p className="donation-bank">Prospa Capital Bank</p>
+            <strong className="donation-account-number">6261700982</strong>
+            <p className="donation-bank">Moniepoint MFB</p>
             <p className="donation-account-name">Blue Node Foundation</p>
           </div>
 
